@@ -1194,19 +1194,46 @@ function setDate() {
   const now = new Date();
   const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  document.getElementById('dateMain').textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+  document.getElementById('dateMain').textContent = `NBA ${now.getFullYear()}`;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// LOAD SCOREBOARD
+// LOAD SCOREBOARD — fetches all upcoming scheduled games
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function dateStr(d) {
+  // Returns YYYYMMDD string for ESPN API
+  return d.toISOString().slice(0,10).replace(/-/g,'');
+}
+
 async function loadGames() {
   try {
     document.getElementById('errorBar').style.display = 'none';
-    const data = await espnFetch('/scoreboard');
-    S.games = data.events || [];
+
+    // Fetch today + up to 7 days ahead, stop when 2 empty days in a row
+    const allGames = [];
+    const today = new Date();
+    let emptyDays = 0;
+
+    for (let i = 0; i <= 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      try {
+        const data = await espnFetch(`/scoreboard?dates=${dateStr(d)}`);
+        const events = data.events || [];
+        if (events.length === 0) {
+          emptyDays++;
+          if (emptyDays >= 2) break;
+        } else {
+          emptyDays = 0;
+          events.forEach(ev => { ev._dateObj = new Date(d); allGames.push(ev); });
+        }
+      } catch(e) { /* skip day */ }
+    }
+
+    S.games = allGames;
+    const total = allGames.length;
     document.getElementById('dateSub').textContent =
-      `${S.games.length} game${S.games.length !== 1 ? 's' : ''} today`;
+      `${total} upcoming game${total !== 1 ? 's' : ''}`;
     document.getElementById('updatedTag').textContent =
       new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     renderGames();
@@ -1219,20 +1246,51 @@ async function loadGames() {
   }
 }
 
+function friendlyDate(d) {
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const today = new Date();
+  const tomorrow = new Date(); tomorrow.setDate(today.getDate() + 1);
+  if (d.toDateString() === today.toDateString()) return 'TODAY';
+  if (d.toDateString() === tomorrow.toDateString()) return 'TOMORROW';
+  return `${days[d.getDay()].toUpperCase()}, ${months[d.getMonth()].toUpperCase()} ${d.getDate()}`;
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// RENDER GAMES
+// RENDER GAMES — grouped by date with headers
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function renderGames() {
   const list = document.getElementById('gamesList');
   if (S.games.length === 0) {
-    list.innerHTML = '<div class="unavail-note">No NBA games scheduled today.</div>';
+    list.innerHTML = '<div class="unavail-note">No upcoming NBA games found.</div>';
     return;
   }
 
   list.innerHTML = '';
+
+  // Group by date
+  const groups = {};
+  const groupOrder = [];
   S.games.forEach(ev => {
-    const card = makeGameCard(ev);
-    list.appendChild(card);
+    const d = ev._dateObj || new Date(ev.date);
+    const key = d.toDateString();
+    if (!groups[key]) { groups[key] = { date: d, events: [] }; groupOrder.push(key); }
+    groups[key].events.push(ev);
+  });
+
+  groupOrder.forEach(key => {
+    const group = groups[key];
+    // Date header
+    const header = document.createElement('div');
+    header.className = 'section-label';
+    header.style.marginTop = '16px';
+    header.innerHTML = `${friendlyDate(group.date)}`;
+    list.appendChild(header);
+
+    group.events.forEach(ev => {
+      const card = makeGameCard(ev);
+      list.appendChild(card);
+    });
   });
 
   // Re-expand active
@@ -1333,9 +1391,20 @@ function toggleCard(id) {
     card.classList.add('active');
     S.activeGame = id;
     loadPanel(id);
+    // Push state so phone back button closes panel instead of exiting app
+    history.pushState({ gameOpen: id }, '');
     setTimeout(() => card.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
   }
 }
+
+// Handle phone back button — close panel instead of leaving app
+window.addEventListener('popstate', (e) => {
+  if (S.activeGame) {
+    const card = document.getElementById(`card-${S.activeGame}`);
+    if (card) card.classList.remove('active');
+    S.activeGame = null;
+  }
+});
 
 function switchTab(gameId, tab, el) {
   el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
