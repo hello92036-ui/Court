@@ -946,12 +946,14 @@ main {
   </div>
 </main>
 
+<!-- Parlay float -->
 <div class="parlay-float" id="parlayFloat" onclick="openParlay()">
   <div class="parlay-badge" id="parlayBadge">0</div>
   <div class="parlay-float-text">Parlay Builder</div>
   <div class="parlay-float-cta">Analyze →</div>
 </div>
 
+<!-- Parlay modal -->
 <div class="overlay" id="parlayOverlay" onclick="overlayClick(event,'parlayOverlay')">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -963,6 +965,7 @@ main {
   </div>
 </div>
 
+<!-- Prop sheet -->
 <div class="prop-sheet" id="propSheet" onclick="overlayClick(event,'propSheet')">
   <div class="prop-sheet-inner" id="propSheetInner"></div>
 </div>
@@ -972,10 +975,10 @@ main {
 // CONFIG
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const CFG = {
-  // IMPORTANT: ADD YOUR SPECIFIC VERCEL URL BELOW. NO TRAILING SLASH.
-  PROXY: 'https://court-proxy.vercel.app', 
+  PROXY: 'https://YOUR-RAILWAY-URL.railway.app', // replace after deploy
   ESPN:  'https://site.api.espn.com/apis/site/v2/sports/basketball/nba',
-  REFRESH_SEC: 120
+  REFRESH_SEC: 120,
+  IST_OFFSET: 5.5 * 60 * 60 * 1000, // ms
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -993,23 +996,33 @@ const S = {
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// TIME HELPERS (Fixed via Native Intl)
+// TIME HELPERS — all in IST
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function toIST(date) { 
-  return new Date(date.toLocaleString("en-US", {timeZone: "Asia/Kolkata"})); 
+function toIST(date) {
+  // Returns a Date object adjusted to IST
+  return new Date(date.getTime() + CFG.IST_OFFSET - (date.getTimezoneOffset() * 60000));
 }
 
-function istTimeStr(date) { 
-  return new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true }).format(date); 
+function istTimeStr(date) {
+  const ist = toIST(date);
+  let h = ist.getUTCHours();
+  const m = String(ist.getUTCMinutes()).padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return `${h}:${m} ${ampm}`;
 }
 
 function istDateKey(date) {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(date);
-  return `${parts.find(p=>p.type==='year').value}-${parts.find(p=>p.type==='month').value}-${parts.find(p=>p.type==='day').value}`;
+  const ist = toIST(date);
+  return `${ist.getUTCFullYear()}-${ist.getUTCMonth()}-${ist.getUTCDate()}`;
 }
 
-function nowIST() { 
-  return toIST(new Date()); 
+function istDateObj(date) {
+  return toIST(date);
+}
+
+function nowIST() {
+  return toIST(new Date());
 }
 
 function friendlyDateIST(istDate) {
@@ -1018,21 +1031,21 @@ function friendlyDateIST(istDate) {
   const days   = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
   const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
-  const td = today.getDate(), tm = today.getMonth(), ty = today.getFullYear();
-  const nd = tomorrow.getDate(), nm = tomorrow.getMonth(), ny = tomorrow.getFullYear();
-  const d = istDate.getDate(), mo = istDate.getMonth(), y = istDate.getFullYear();
+  const td = today.getUTCDate(), tm = today.getUTCMonth(), ty = today.getUTCFullYear();
+  const nd = tomorrow.getUTCDate(), nm = tomorrow.getUTCMonth(), ny = tomorrow.getUTCFullYear();
+  const d = istDate.getUTCDate(), mo = istDate.getUTCMonth(), y = istDate.getUTCFullYear();
 
   if (d === td && mo === tm && y === ty) return 'TODAY';
   if (d === nd && mo === nm && y === ny) return 'TOMORROW';
-  return `${days[istDate.getDay()]}, ${months[mo]} ${d}`;
+  return `${days[istDate.getUTCDay()]}, ${months[mo]} ${d}`;
 }
 
 // ESPN date string YYYYMMDD in IST
 function espnDateStr(date) {
   const ist = toIST(date);
-  const y = ist.getFullYear();
-  const m = String(ist.getMonth()+1).padStart(2,'0');
-  const d = String(ist.getDate()).padStart(2,'0');
+  const y = ist.getUTCFullYear();
+  const m = String(ist.getUTCMonth()+1).padStart(2,'0');
+  const d = String(ist.getUTCDate()).padStart(2,'0');
   return `${y}${m}${d}`;
 }
 
@@ -1042,14 +1055,29 @@ function espnDateStr(date) {
 function formatCountdown(ms) {
   if (ms <= 0) return 'STARTING';
   const totalSecs = Math.floor(ms / 1000);
-  const s = totalSecs % 60, mi = Math.floor(totalSecs / 60) % 60, h = Math.floor(totalSecs / 3600) % 24, d = Math.floor(totalSecs / 86400);
-  const ss = String(s).padStart(2,'0'), mms = String(mi).padStart(2,'0'), hs = String(h).padStart(2,'0');
-  return d > 0 ? `${String(d).padStart(2,'0')}:${hs}:${mms}:${ss}` : `${hs}:${mms}:${ss}`;
+  const s  = totalSecs % 60;
+  const totalMins = Math.floor(totalSecs / 60);
+  const mi = totalMins % 60;
+  const totalHrs = Math.floor(totalMins / 60);
+  const h  = totalHrs % 24;
+  const d  = Math.floor(totalHrs / 24);
+
+  const ss  = String(s).padStart(2,'0');
+  const mms = String(mi).padStart(2,'0');
+  const hs  = String(h).padStart(2,'0');
+
+  if (d > 0) {
+    const ds = String(d).padStart(2,'0');
+    return `${ds}:${hs}:${mms}:${ss}`;
+  }
+  return `${hs}:${mms}:${ss}`;
 }
 
 function countdownLabel(ms) {
   if (ms <= 0) return '';
-  return Math.floor(ms / 86400000) > 0 ? 'DD:HH:MM:SS' : 'HH:MM:SS';
+  const d = Math.floor(ms / 86400000);
+  if (d > 0) return 'DD:HH:MM:SS';
+  return 'HH:MM:SS';
 }
 
 function startCountdown(eventId, gameDate) {
@@ -1061,7 +1089,8 @@ function startCountdown(eventId, gameDate) {
   if (!el) return;
 
   function update() {
-    const ms = gameDate.getTime() - new Date().getTime();
+    const now = new Date();
+    const ms = gameDate.getTime() - now.getTime();
     if (el) el.textContent = formatCountdown(ms);
     if (lbl) lbl.textContent = countdownLabel(ms);
   }
@@ -1151,7 +1180,7 @@ function renderGames() {
   const order = [];
   S.games.forEach(ev => {
     const key = istDateKey(new Date(ev.date));
-    if (!groups[key]) { groups[key] = { istDate: toIST(new Date(ev.date)), events: [] }; order.push(key); }
+    if (!groups[key]) { groups[key] = { istDate: istDateObj(new Date(ev.date)), events: [] }; order.push(key); }
     groups[key].events.push(ev);
   });
 
@@ -1442,7 +1471,7 @@ function renderLineups(id, data) {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// FIXED PROJECTIONS
+// PROJECTIONS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function renderProjections(id, data) {
   const el = document.getElementById(`pane-proj-${id}`);
@@ -1451,36 +1480,32 @@ function renderProjections(id, data) {
 
   const boxTeams = data.boxscore?.teams || [];
   if (boxTeams.length < 2) {
-    el.innerHTML = `<div class="empty-note">Awaiting Roster Data.</div>`;
+    el.innerHTML = `
+      <div class="data-badge">STATISTICAL ESTIMATE · Deploy proxy for full data</div>
+      <div class="empty-note">
+        Projections load once rosters are confirmed.<br><br>
+        <strong>When available you'll see:</strong><br>
+        Season avg · Last 5 avg · Home/Away splits · Matchup analysis<br><br>
+        Verdict: <strong style="color:var(--take)">TAKE IT</strong> or <strong style="color:var(--avoid)">AVOID</strong> with full reasoning.
+      </div>`;
     return;
   }
 
   let players = [];
   boxTeams.forEach(team => {
     (team.athletes||[]).forEach(a => {
-      // FIX: Removed the requirement for existing stats so future games load
-      players.push({athlete:a.athlete, team:team.team, stats:a.stats||[], starter:a.starter});
+      if ((a.stats||[]).length > 0) players.push({athlete:a.athlete, team:team.team, stats:a.stats, starter:a.starter});
     });
   });
 
-  // Default to top 8 players on the roster if starters are not announced yet
-  let targets = players.filter(p => p.starter);
-  if (targets.length === 0) targets = players.slice(0, 8);
-
-  if (targets.length === 0) {
-    el.innerHTML = `<div class="empty-note">Awaiting ESPN roster data. Check back closer to game time.</div>`;
+  const starters = players.filter(p => p.starter);
+  if (starters.length === 0) {
+    el.innerHTML = `<div class="empty-note">Stats appear during or after games. Pre-game projections need the proxy deployed.</div>`;
     return;
   }
 
-  // FIX: If ESPN stats are completely empty (future game), wait for the proxy to fetch
-  const hasStats = targets.some(p => p.stats && p.stats.length > 0);
-  if (!hasStats && !S.playerCache[id]) {
-     el.innerHTML = `<div class="loading-block"><div class="spinner"></div><div class="load-txt">FETCHING NBA STATS...</div></div>`;
-     return;
-  }
-
-  let html = `<div class="data-badge">PRE-GAME STATS</div><div>`;
-  targets.slice(0,8).forEach(p => {
+  let html = `<div class="data-badge">LIVE STATS</div><div>`;
+  starters.slice(0,8).forEach(p => {
     const pts = parseFloat(p.stats[0]||0);
     const ast = parseFloat(p.stats[1]||0);
     const reb = parseFloat(p.stats[2]||0);
@@ -1550,7 +1575,7 @@ function renderFullProj(id, espnData, nbaStats) {
   const players = nbaStats.players || [];
   if (players.length === 0) { renderProjections(id, espnData); return; }
 
-  let html = `<div class="data-badge">NBA STATS · Proxy Active</div><div>`;
+  let html = `<div class="data-badge">NBA STATS · Season avg + Last 5 + Home/Away splits</div><div>`;
   players.forEach(p => {
     const avg = p.seasonAvg||{};
     const l5  = p.last5Avg||{};
@@ -1668,14 +1693,18 @@ function renderVenue(id, data) {
     <div class="intel-block" id="venue-games-${id}">
       <div class="intel-block-title">🏟 Last 5 at This Venue</div>
       <div class="empty-note" style="text-align:left;font-size:11px;padding:4px 0">
-        Loading venue history...
+        ${CFG.PROXY.includes('YOUR-RAILWAY')
+          ? 'Deploy the proxy to load venue history.'
+          : 'Loading venue history...'}
       </div>
     </div>
 
     <div class="intel-block" id="h2h-games-${id}">
       <div class="intel-block-title">🔁 Last 5 Head-to-Head</div>
       <div class="empty-note" style="text-align:left;font-size:11px;padding:4px 0">
-        Loading H2H history...
+        ${CFG.PROXY.includes('YOUR-RAILWAY')
+          ? 'Deploy the proxy to load H2H history.'
+          : 'Loading H2H history...'}
       </div>
     </div>`;
 
@@ -1763,14 +1792,8 @@ async function loadNBAStats(id, espnData) {
 
   for (const team of boxTeams) {
     const isHome = team.team?.id === home.team?.id;
-    const athletes = team.athletes || [];
-    
-    // [PROXY LOCK FIX] Bypass the starter lock
-    let targets = athletes.filter(a => a.starter);
-    if (targets.length === 0) targets = athletes.slice(0, 5);
-    targets = targets.slice(0, 5);
-
-    for (const ath of targets) {
+    const starters = (team.athletes||[]).filter(a=>a.starter).slice(0,5);
+    for (const ath of starters) {
       const name = ath.athlete?.displayName||'';
       if (!name) continue;
       try {
