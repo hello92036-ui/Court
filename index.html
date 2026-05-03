@@ -2,77 +2,2150 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>COURT — NBA Intelligence</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="COURT">
+<meta name="theme-color" content="#0f0e17">
+<title>COURT — NBA Intel</title>
+<link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+
 <style>
-  :root {
-    --bg: #080a0f;
-    --surface: #0e1118;
-    --surface2: #141820;
-    --surface3: #1c2230;
-    --border: rgba(255,255,255,0.06);
-    --border2: rgba(255,255,255,0.1);
-    --accent: #f97316;
-    --accent2: #fb923c;
-    --green: #22c55e;
-    --red: #ef4444;
-    --yellow: #eab308;
-    --blue: #3b82f6;
-    --text: #f1f5f9;
-    --text2: #94a3b8;
-    --text3: #475569;
-    --mono: 'JetBrains Mono', monospace;
-    --display: 'Bebas Neue', sans-serif;
-    --body: 'DM Sans', sans-serif;
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DESIGN SYSTEM
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+:root {
+  --bg:       #0f0e17;
+  --bg2:      #1a1828;
+  --bg3:      #221f35;
+  --surface:  #1e1c2e;
+  --surface2: #272440;
+  --border:   rgba(255,255,255,0.06);
+  --border2:  rgba(255,255,255,0.11);
+
+  --take:   #00e5a0;
+  --take-bg: rgba(0,229,160,0.08);
+  --take-border: rgba(0,229,160,0.2);
+
+  --avoid:   #ff4d6d;
+  --avoid-bg: rgba(255,77,109,0.08);
+  --avoid-border: rgba(255,77,109,0.2);
+
+  --risky:   #ffb627;
+  --risky-bg: rgba(255,182,39,0.08);
+  --risky-border: rgba(255,182,39,0.2);
+
+  --live:    #ff4d6d;
+  --accent:  #a78bfa;
+  --accent2: #7c3aed;
+
+  --text:  #f2f0ff;
+  --text2: #9d9bbd;
+  --text3: #5c5a7a;
+
+  --display: 'Syne', sans-serif;
+  --mono: 'Space Mono', monospace;
+  --body: 'Instrument Sans', sans-serif;
+
+  --r: 14px;
+  --r-sm: 9px;
+  --r-lg: 20px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  font-size: 15px;
+  line-height: 1.5;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Ambient glow */
+body::before {
+  content: '';
+  position: fixed;
+  top: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(124,58,237,0.12) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ━━━━━━━━ HEADER ━━━━━━━━ */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(15,14,23,0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  padding-top: env(safe-area-inset-top);
+  height: calc(56px + env(safe-area-inset-top));
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 10px;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--take);
+  box-shadow: 0 0 12px var(--take);
+  animation: breathe 3s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,100% { opacity:1; box-shadow: 0 0 12px var(--take); }
+  50% { opacity:0.5; box-shadow: 0 0 4px var(--take); }
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 50px;
+  padding: 7px 14px;
+  font-family: var(--body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+.refresh-btn svg { width:13px; height:13px; transition: transform 0.5s; }
+.refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.countdown {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ━━━━━━━━ MAIN ━━━━━━━━ */
+main {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 14px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ━━━━━━━━ DATE BAR ━━━━━━━━ */
+.datebar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.datebar-left { display: flex; align-items: baseline; gap: 10px; }
+
+.date-main {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.date-sub {
+  font-size: 13px;
+  color: var(--text2);
+}
+
+.updated-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+}
+
+/* ━━━━━━━━ SECTION LABEL ━━━━━━━━ */
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ━━━━━━━━ GAME CARD ━━━━━━━━ */
+.games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 32px;
+}
+
+.game-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.game-card:hover { border-color: var(--border2); }
+
+.game-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(167,139,250,0.2), 0 8px 32px rgba(124,58,237,0.1);
+}
+
+.game-card-top {
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.matchup {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.team-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.team-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: var(--bg3);
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.team-logo-fallback {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+.team-info { min-width: 0; }
+
+.team-abbr {
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.team-rec {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.at-sign {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+.game-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.game-time {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.game-score {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.status-pill {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 50px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.pill-pre { background: rgba(167,139,250,0.12); color: var(--accent); }
+.pill-live { background: rgba(255,77,109,0.15); color: var(--live); animation: pulse-pill 1.5s infinite; }
+.pill-final { background: var(--bg3); color: var(--text3); }
+
+@keyframes pulse-pill {
+  0%,100% { opacity:1; }
+  50% { opacity:0.5; }
+}
+
+/* ━━━━━━━━ EXPANDED GAME PANEL ━━━━━━━━ */
+.game-panel {
+  display: none;
+  border-top: 1px solid var(--border);
+}
+
+.game-card.active .game-panel { display: block; }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  gap: 2px;
+}
+
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  font-family: var(--body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text3);
+  padding: 11px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Tab panes */
+.pane { display: none; padding: 16px; }
+.pane.active { display: block; }
+
+/* ━━━━━━━━ INJURY ROWS ━━━━━━━━ */
+.inj-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.inj-col-header {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.player-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.p-info { display: flex; align-items: center; gap: 7px; min-width: 0; }
+
+.p-pos {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 2px 5px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.p-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.s-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.s-out { background: var(--avoid-bg); color: var(--avoid); border: 1px solid var(--avoid-border); }
+.s-q { background: var(--risky-bg); color: var(--risky); border: 1px solid var(--risky-border); }
+.s-p { background: var(--take-bg); color: var(--take); border: 1px solid var(--take-border); }
+.s-gtd { background: var(--risky-bg); color: var(--risky); border: 1px solid var(--risky-border); }
+.s-ok { background: rgba(167,139,250,0.1); color: var(--accent); border: 1px solid rgba(167,139,250,0.15); }
+
+.add-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.add-btn:hover, .add-btn.added {
+  background: var(--accent2);
+  border-color: var(--accent2);
+  color: white;
+}
+
+/* ━━━━━━━━ PROJECTIONS ━━━━━━━━ */
+.proj-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.data-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--text3);
+  background: var(--bg3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.08em;
+}
+
+.proj-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Top-level verdict card */
+.verdict-card {
+  border-radius: var(--r);
+  border: 1px solid;
+  overflow: hidden;
+}
+
+.verdict-card.take { border-color: var(--take-border); background: var(--take-bg); }
+.verdict-card.avoid { border-color: var(--avoid-border); background: var(--avoid-bg); }
+.verdict-card.risky { border-color: var(--risky-border); background: var(--risky-bg); }
+
+.verdict-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  cursor: pointer;
+  gap: 10px;
+}
+
+.verdict-left { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+
+.verdict-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.verdict-player { min-width: 0; }
+
+.verdict-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.verdict-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text2);
+}
+
+.verdict-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.verdict-label {
+  font-family: var(--display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.take .verdict-label { color: var(--take); }
+.avoid .verdict-label { color: var(--avoid); }
+.risky .verdict-label { color: var(--risky); }
+
+.conf-pct {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.chevron {
+  color: var(--text3);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.verdict-card.open .chevron { transform: rotate(180deg); }
+
+/* Verdict detail expand */
+.verdict-detail {
+  display: none;
+  padding: 0 14px 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.verdict-card.open .verdict-detail { display: block; }
+
+/* Prop lines */
+.prop-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  margin-top: 12px;
+}
+
+.prop-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.2);
+  border-radius: var(--r-sm);
+  gap: 8px;
+}
+
+.prop-name {
+  font-size: 12px;
+  color: var(--text2);
+  min-width: 80px;
+}
+
+.prop-vals {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.prop-avg {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text2);
+  text-align: right;
+}
+
+.prop-avg span { display: block; font-size: 9px; color: var(--text3); }
+
+.prop-verdict-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  width: 52px;
+  text-align: center;
+}
+
+.tag-take { background: var(--take-bg); color: var(--take); border: 1px solid var(--take-border); }
+.tag-avoid { background: var(--avoid-bg); color: var(--avoid); border: 1px solid var(--avoid-border); }
+.tag-risky { background: var(--risky-bg); color: var(--risky); border: 1px solid var(--risky-border); }
+.tag-na { background: var(--bg3); color: var(--text3); border: 1px solid var(--border); }
+
+.add-prop-btn {
+  font-family: var(--body);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 50px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.add-prop-btn:hover { border-color: var(--accent); color: var(--accent); }
+.add-prop-btn.added { background: var(--accent2); border-color: var(--accent2); color: white; }
+
+/* Reasoning */
+.reasoning-block {
+  background: rgba(0,0,0,0.25);
+  border-radius: var(--r-sm);
+  padding: 12px;
+}
+
+.reasoning-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.reason-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+  padding: 3px 0;
+}
+
+.reason-bullet {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--text3);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.reason-item.positive .reason-bullet { background: var(--take); }
+.reason-item.negative .reason-bullet { background: var(--avoid); }
+.reason-item.neutral .reason-bullet { background: var(--risky); }
+
+/* ━━━━━━━━ VENUE + H2H TAB ━━━━━━━━ */
+.intel-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.intel-block {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px;
+}
+
+.intel-block-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.game-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.game-log-row:last-child { border-bottom: none; }
+
+.log-matchup { color: var(--text2); font-size: 12px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.log-result { font-family: var(--mono); font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.log-result.win { color: var(--take); }
+.log-result.loss { color: var(--avoid); }
+.log-score { font-family: var(--mono); font-size: 11px; color: var(--text2); flex-shrink: 0; }
+.log-date { font-family: var(--mono); font-size: 10px; color: var(--text3); flex-shrink: 0; }
+
+/* ━━━━━━━━ PARLAY BUILDER ━━━━━━━━ */
+.parlay-float {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  z-index: 200;
+  background: var(--text);
+  border-radius: 50px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  white-space: nowrap;
+  max-width: calc(100vw - 32px);
+}
+
+.parlay-float.show { transform: translateX(-50%) translateY(0); }
+
+.parlay-float:hover { transform: translateX(-50%) translateY(-2px); }
+.parlay-float.show:hover { transform: translateX(-50%) translateY(-2px); }
+
+.parlay-badge {
+  background: var(--avoid);
+  color: white;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.parlay-float-text {
+  color: var(--bg);
+  font-weight: 600;
+  font-size: 14px;
+  flex: 1;
+}
+
+.parlay-float-cta {
+  background: var(--bg);
+  color: var(--text);
+  padding: 5px 12px;
+  border-radius: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ━━━━━━━━ PARLAY MODAL ━━━━━━━━ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 300;
+  display: none;
+  align-items: flex-end;
+}
+
+.overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
+  animation: slideUp 0.28s cubic-bezier(0.34,1.2,0.64,1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(60px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal-handle {
+  width: 36px;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 2px;
+  margin: 0 auto 18px;
+}
+
+.modal-title {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.modal-sub {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 20px;
+  font-style: italic;
+}
+
+.parlay-leg {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border-radius: var(--r);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+  gap: 10px;
+}
+
+.leg-info { flex: 1; min-width: 0; }
+.leg-player { font-weight: 600; font-size: 14px; }
+.leg-prop { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+
+.leg-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.remove-leg {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text3);
+  padding: 4px;
+  transition: color 0.15s;
+  display: flex;
+}
+
+.remove-leg:hover { color: var(--avoid); }
+
+.parlay-analysis {
+  background: var(--bg2);
+  border-radius: var(--r);
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.analysis-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.analysis-row:last-child { border-bottom: none; }
+.analysis-label { color: var(--text2); }
+
+.analysis-verdict {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: var(--r);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.av-good { background: var(--take-bg); color: var(--take); border: 1px solid var(--take-border); }
+.av-warn { background: var(--risky-bg); color: var(--risky); border: 1px solid var(--risky-border); }
+.av-bad { background: var(--avoid-bg); color: var(--avoid); border: 1px solid var(--avoid-border); }
+
+.disclaimer {
+  font-size: 11px;
+  color: var(--text3);
+  text-align: center;
+  margin-top: 16px;
+  font-style: italic;
+}
+
+/* ━━━━━━━━ PROP PICKER SHEET ━━━━━━━━ */
+.prop-sheet {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(8px);
+  z-index: 400;
+  display: none;
+  align-items: flex-end;
+}
+
+.prop-sheet.open { display: flex; }
+
+.prop-sheet-inner {
+  background: var(--surface);
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 20px 16px calc(32px + env(safe-area-inset-bottom));
+  animation: slideUp 0.25s cubic-bezier(0.34,1.2,0.64,1);
+  max-height: 75vh;
+  overflow-y: auto;
+}
+
+.sheet-title { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 4px; }
+.sheet-sub { font-size: 12px; color: var(--text3); margin-bottom: 18px; font-family: var(--mono); }
+
+.prop-options { display: flex; flex-direction: column; gap: 6px; }
+
+.prop-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  gap: 10px;
+}
+
+.prop-option:hover { border-color: var(--accent); }
+
+.po-label { font-size: 14px; font-weight: 500; }
+.po-verdict { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+
+.cancel-btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 13px;
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  font-family: var(--body);
+  font-size: 14px;
+  color: var(--text3);
+  cursor: pointer;
+}
+
+/* ━━━━━━━━ LOADING / EMPTY ━━━━━━━━ */
+.loading-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  gap: 14px;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.loading-txt {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.1em;
+}
+
+.unavail-note {
+  font-size: 13px;
+  color: var(--text3);
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.error-bar {
+  background: var(--avoid-bg);
+  border: 1px solid var(--avoid-border);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  color: var(--avoid);
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+
+/* ━━━━━━━━ LINEUPS ━━━━━━━━ */
+.lineup-col-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.starter-badge {
+  font-family: var(--mono);
+  font-size: 8px;
+  color: var(--accent);
+  background: rgba(167,139,250,0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* Responsive */
+@media (max-width: 420px) {
+  .inj-grid { grid-template-columns: 1fr; }
+  .date-main { font-size: 24px; }
+  .modal-title { font-size: 22px; }
+}
+
+/* Fade in */
+.fade { animation: fadeIn 0.3s ease; }
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(6px); }
+  to { opacity:1; transform:translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    COURT
+  </div>
+  <div class="header-right">
+    <span class="countdown" id="countdown">—</span>
+    <button class="refresh-btn" id="refreshBtn" onclick="manualRefresh()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <polyline points="23 4 23 10 17 10"></polyline>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+      </svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="datebar">
+    <div class="datebar-left">
+      <div class="date-main" id="dateMain">—</div>
+      <div class="date-sub" id="dateSub">loading...</div>
+    </div>
+    <div class="updated-tag" id="updatedTag"></div>
+  </div>
+
+  <div class="error-bar" id="errorBar">⚠ Live data temporarily unavailable. Tap refresh to retry.</div>
+
+  <div class="section-label">Games</div>
+
+  <div class="games-list" id="gamesList">
+    <div class="loading-block">
+      <div class="spinner"></div>
+      <div class="loading-txt">FETCHING GAMES...</div>
+    </div>
+  </div>
+</main>
+
+<!-- Parlay float button -->
+<div class="parlay-float" id="parlayFloat" onclick="openParlay()">
+  <div class="parlay-badge" id="parlayBadge">0</div>
+  <div class="parlay-float-text">Parlay Builder</div>
+  <div class="parlay-float-cta">Analyze →</div>
+</div>
+
+<!-- Parlay modal -->
+<div class="overlay" id="parlayOverlay" onclick="handleOverlayClick(event,'parlayOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">PARLAY BUILDER</div>
+    <div class="modal-sub">Statistical estimates only. Not financial advice.</div>
+    <div id="parlayLegs"></div>
+    <div id="parlayAnalysis"></div>
+    <div class="disclaimer">All projections are data-driven estimates based on season averages, splits and matchup data. Never bet money you can't afford to lose.</div>
+  </div>
+</div>
+
+<!-- Prop picker sheet -->
+<div class="prop-sheet" id="propSheet" onclick="handleOverlayClick(event,'propSheet')">
+  <div class="prop-sheet-inner" id="propSheetInner"></div>
+</div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONFIG — Replace PROXY_URL after deploying backend
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const CONFIG = {
+  PROXY_URL: 'https://YOUR-RAILWAY-URL.railway.app', // ← replace after deploy
+  ESPN_BASE: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba',
+  REFRESH_SEC: 120,
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const S = {
+  games: [],
+  activeGame: null,
+  gameCache: {},
+  playerCache: {},
+  parlayLegs: [],
+  nextRefresh: 0,
+  timerInterval: null,
+  refreshInterval: null,
+  // pending prop pick
+  pendingProp: null,
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FETCH HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function espnFetch(path) {
+  const r = await fetch(`${CONFIG.ESPN_BASE}${path}`);
+  if (!r.ok) throw new Error(`ESPN ${r.status}`);
+  return r.json();
+}
+
+async function proxyFetch(path) {
+  // If proxy not configured yet, return null gracefully
+  if (CONFIG.PROXY_URL.includes('YOUR-RAILWAY')) return null;
+  const r = await fetch(`${CONFIG.PROXY_URL}${path}`);
+  if (!r.ok) return null;
+  return r.json();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function init() {
+  setDate();
+  loadGames();
+  startAutoRefresh();
+}
+
+function setDate() {
+  const now = new Date();
+  const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  document.getElementById('dateMain').textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]}`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LOAD SCOREBOARD
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadGames() {
+  try {
+    document.getElementById('errorBar').style.display = 'none';
+    const data = await espnFetch('/scoreboard');
+    S.games = data.events || [];
+    document.getElementById('dateSub').textContent =
+      `${S.games.length} game${S.games.length !== 1 ? 's' : ''} today`;
+    document.getElementById('updatedTag').textContent =
+      new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+    renderGames();
+  } catch(e) {
+    console.error('Scoreboard error:', e);
+    document.getElementById('errorBar').style.display = 'block';
+    document.getElementById('dateSub').textContent = 'unavailable';
+    if (S.games.length === 0)
+      document.getElementById('gamesList').innerHTML = '<div class="unavail-note">Could not load games.<br>Check your connection and refresh.</div>';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER GAMES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderGames() {
+  const list = document.getElementById('gamesList');
+  if (S.games.length === 0) {
+    list.innerHTML = '<div class="unavail-note">No NBA games scheduled today.</div>';
+    return;
   }
 
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  list.innerHTML = '';
+  S.games.forEach(ev => {
+    const card = makeGameCard(ev);
+    list.appendChild(card);
+  });
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--body);
-    min-height: 100vh;
-    overflow-x: hidden;
+  // Re-expand active
+  if (S.activeGame) {
+    const card = document.getElementById(`card-${S.activeGame}`);
+    if (card) {
+      card.classList.add('active');
+      loadPanel(S.activeGame);
+    }
+  }
+}
+
+function makeGameCard(ev) {
+  const comp = ev.competitions?.[0] || {};
+  const cs = comp.competitors || [];
+  const home = cs.find(c => c.homeAway === 'home') || cs[0] || {};
+  const away = cs.find(c => c.homeAway === 'away') || cs[1] || {};
+  const status = ev.status?.type;
+  const sName = status?.name || '';
+
+  const startTime = new Date(ev.date);
+  const timeStr = startTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+  let pillClass = 'pill-pre', pillText = timeStr;
+  if (sName === 'STATUS_IN_PROGRESS') { pillClass = 'pill-live'; pillText = status?.shortDetail || 'LIVE'; }
+  else if (sName === 'STATUS_FINAL') { pillClass = 'pill-final'; pillText = 'FINAL'; }
+
+  let scoreOrTime = '';
+  if (sName === 'STATUS_IN_PROGRESS' || sName === 'STATUS_FINAL') {
+    scoreOrTime = `<div class="game-score">${away.score ?? '0'} – ${home.score ?? '0'}</div>`;
+  } else {
+    scoreOrTime = `<div class="game-time">${timeStr}</div>`;
   }
 
-  /* Subtle background texture */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: 
-      radial-gradient(ellipse 80% 50% at 20% 10%, rgba(249,115,22,0.04) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(59,130,246,0.03) 0%, transparent 50%);
-    pointer-events: none;
-    z-index: 0;
+  const hLogo = home.team?.logo || '';
+  const aLogo = away.team?.logo || '';
+
+  function teamSide(team, logo) {
+    const abbr = team.team?.abbreviation || '?';
+    const rec = team.records?.[0]?.summary || '';
+    return `
+      <div class="team-side">
+        ${logo
+          ? `<img class="team-logo" src="${logo}" alt="${abbr}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="team-logo-fallback" style="display:none">${abbr}</div>`
+          : `<div class="team-logo-fallback">${abbr}</div>`}
+        <div class="team-info">
+          <div class="team-abbr">${abbr}</div>
+          ${rec ? `<div class="team-rec">${rec}</div>` : ''}
+        </div>
+      </div>`;
   }
 
-  /* ── Header ── */
-  header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(8,10,15,0.92);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
-    padding: 0 20px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+  const card = document.createElement('div');
+  card.className = 'game-card fade';
+  card.id = `card-${ev.id}`;
+  card.innerHTML = `
+    <div class="game-card-top" onclick="toggleCard('${ev.id}')">
+      <div class="matchup">
+        ${teamSide(away, aLogo)}
+        <div class="at-sign">@</div>
+        ${teamSide(home, hLogo)}
+      </div>
+      <div class="game-right">
+        ${scoreOrTime}
+        <div class="status-pill ${pillClass}">${pillText}</div>
+      </div>
+    </div>
+    <div class="game-panel" id="panel-${ev.id}">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('${ev.id}','inj',this)">Injuries</div>
+        <div class="tab" onclick="switchTab('${ev.id}','lineups',this)">Lineups</div>
+        <div class="tab" onclick="switchTab('${ev.id}','proj',this)">Projections</div>
+        <div class="tab" onclick="switchTab('${ev.id}','venue',this)">Venue & H2H</div>
+        <div class="tab" onclick="switchTab('${ev.id}','game',this)">Game Intel</div>
+      </div>
+      <div id="pane-inj-${ev.id}" class="pane active">
+        <div class="loading-block"><div class="spinner"></div><div class="loading-txt">LOADING...</div></div>
+      </div>
+      <div id="pane-lineups-${ev.id}" class="pane"></div>
+      <div id="pane-proj-${ev.id}" class="pane"></div>
+      <div id="pane-venue-${ev.id}" class="pane"></div>
+      <div id="pane-game-${ev.id}" class="pane"></div>
+    </div>`;
+  return card;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TOGGLE CARD
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function toggleCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  const wasActive = card.classList.contains('active');
+
+  document.querySelectorAll('.game-card.active').forEach(c => c.classList.remove('active'));
+  S.activeGame = null;
+
+  if (!wasActive) {
+    card.classList.add('active');
+    S.activeGame = id;
+    loadPanel(id);
+    setTimeout(() => card.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
+  }
+}
+
+function switchTab(gameId, tab, el) {
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll(`[id^="pane-"][id$="-${gameId}"]`).forEach(p => p.classList.remove('active'));
+  document.getElementById(`pane-${tab}-${gameId}`).classList.add('active');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LOAD PANEL DATA
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadPanel(eventId) {
+  const cached = S.gameCache[eventId];
+  if (cached && (Date.now() - cached.ts) < 90000) {
+    renderPanel(eventId, cached.data);
+    return;
+  }
+  try {
+    const data = await espnFetch(`/summary?event=${eventId}`);
+    S.gameCache[eventId] = { data, ts: Date.now() };
+    renderPanel(eventId, data);
+    // Kick off NBA stats load in background
+    loadNBAStats(eventId, data);
+  } catch(e) {
+    console.error('Panel load error', e);
+    document.getElementById(`pane-inj-${eventId}`).innerHTML =
+      '<div class="unavail-note">Could not load game details.<br>Live data temporarily unavailable.</div>';
+  }
+}
+
+function renderPanel(eventId, data) {
+  renderInjuries(eventId, data);
+  renderLineups(eventId, data);
+  renderProjectionsFromESPN(eventId, data);
+  renderVenueH2H(eventId, data);
+  renderGameIntel(eventId, data);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INJURIES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderInjuries(eventId, data) {
+  const el = document.getElementById(`pane-inj-${eventId}`);
+  const comps = data.header?.competitions?.[0]?.competitors || [];
+  const injuries = data.injuries || [];
+
+  if (injuries.length < 2) {
+    el.innerHTML = `<div class="unavail-note">Injury report not available yet.<br>Updates drop ~90 min before tip-off. Auto-refreshing.</div>`;
+    return;
   }
 
-  .logo {
-    font-family: var(--display);
-    font-size: 26px;
-    letter-spacing: 3px;
-    color: var(--text);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
+  let html = `<div class="inj-grid">`;
+  injuries.forEach((teamInj, idx) => {
+    const teamName = comps[idx]?.team?.shortDisplayName || `Team ${idx+1}`;
+    const list = teamInj.injuries || [];
+    html += `<div>
+      <div class="inj-col-header">${teamName}</div>`;
+    if (list.length === 0) {
+      html += `<div class="unavail-note" style="text-align:left;padding:6px 0;font-size:12px">No injuries reported ✓</div>`;
+    } else {
+      list.forEach(inj => {
+        const p = inj.athlete || {};
+        const status = inj.status || '';
+        const reason = inj.longComment || inj.shortComment || '';
+        const sc = statusClass(status);
+        html += `
+          <div class="player-row">
+            <div class="p-info">
+              <span class="p-pos">${p.position?.abbreviation || '?'}</span>
+              <span class="p-name">${p.shortName || p.displayName || '?'}</span>
+            </div>
+            <span class="s-tag ${sc}">${formatStatus(status)}</span>
+          </div>`;
+        if (reason) html += `<div style="font-size:11px;color:var(--text3);padding:0 10px 6px;font-style:italic">${reason}</div>`;
+      });
+    }
+    html += `</div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function statusClass(s) {
+  const l = s.toLowerCase();
+  if (l.includes('out')) return 's-out';
+  if (l.includes('question')) return 's-q';
+  if (l.includes('probable')) return 's-p';
+  if (l.includes('day') || l.includes('gtd')) return 's-gtd';
+  return 's-ok';
+}
+
+function formatStatus(s) {
+  const m = {'Active':'ACTIVE','Out':'OUT','Questionable':'QUEST.','Probable':'PROB.','Day-To-Day':'GTD','Doubtful':'DOUBT.','Suspended':'SUSP.'};
+  return m[s] || s.slice(0,5).toUpperCase();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LINEUPS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderLineups(eventId, data) {
+  const el = document.getElementById(`pane-lineups-${eventId}`);
+  const boxTeams = data.boxscore?.teams || [];
+
+  if (boxTeams.length < 2) {
+    el.innerHTML = `<div class="unavail-note">Official lineups drop 30–60 min before tip-off.<br>Refresh closer to game time.</div>`;
+    return;
+  }
+
+  let html = `<div class="inj-grid">`;
+  boxTeams.forEach(team => {
+    const name = team.team?.shortDisplayName || 'Team';
+    const athletes = team.athletes || [];
+    const starters = athletes.filter(a => a.starter);
+    const bench = athletes.filter(a => !a.starter).slice(0, 8);
+
+    html += `<div><div class="lineup-col-title">${name}</div>`;
+    if (starters.length > 0) {
+      html += `<div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin-bottom:5px">STARTERS</div>`;
+      starters.forEach(a => {
+        const ath = a.athlete || {};
+        html += `<div class="player-row" style="border-left:2px solid var(--accent)">
+          <div class="p-info">
+            <span class="p-pos">${ath.position?.abbreviation || '?'}</span>
+            <span class="p-name">${ath.shortName || ath.displayName || '?'}</span>
+          </div>
+          <button class="add-btn" onclick="showPropSheet('${esc(ath.displayName||'')}','${esc(name)}','${ath.id||''}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>`;
+      });
+    }
+    if (bench.length > 0) {
+      html += `<div style="font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:.1em;margin:8px 0 5px">BENCH</div>`;
+      bench.forEach(a => {
+        const ath = a.athlete || {};
+        html += `<div class="player-row">
+          <div class="p-info">
+            <span class="p-pos">${ath.position?.abbreviation || '?'}</span>
+            <span class="p-name">${ath.shortName || ath.displayName || '?'}</span>
+          </div>
+          <button class="add-btn" onclick="showPropSheet('${esc(ath.displayName||'')}','${esc(name)}','${ath.id||''}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>`;
+      });
+    }
+    if (athletes.length === 0) {
+      html += `<div class="unavail-note" style="text-align:left;padding:8px 0;font-size:12px">Not confirmed yet.</div>`;
+    }
+    html += `</div>`;
+  });
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PROJECTIONS (ESPN data - shown immediately)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderProjectionsFromESPN(eventId, data) {
+  const el = document.getElementById(`pane-proj-${eventId}`);
+  const boxTeams = data.boxscore?.teams || [];
+
+  // Check if NBA stats already loaded for this game
+  if (S.playerCache[eventId]) {
+    renderFullProjections(eventId, data, S.playerCache[eventId]);
+    return;
+  }
+
+  if (boxTeams.length < 2) {
+    el.innerHTML = `
+      <div style="margin-bottom:12px">
+        <div class="data-badge">STATISTICAL ESTIMATE · Loading NBA averages...</div>
+      </div>
+      <div class="unavail-note">
+        Projections load once rosters are confirmed and stats are fetched.<br><br>
+        <strong>What you'll see:</strong><br>
+        Per-player season avg, away/home splits, last 5 & last 10 game averages, vs this opponent, at this venue — compared to Stake's typical lines.<br><br>
+        Verdict: <strong style="color:var(--take)">TAKE IT</strong> or <strong style="color:var(--avoid)">AVOID</strong> with bullet-point reasoning.
+      </div>`;
+    return;
+  }
+
+  // Render from boxscore stats (live/final game)
+  let allPlayers = [];
+  boxTeams.forEach(team => {
+    (team.athletes || []).forEach(a => {
+      if ((a.stats || []).length > 0) {
+        allPlayers.push({ athlete: a.athlete, team: team.team, stats: a.stats, starter: a.starter });
+      }
+    });
+  });
+
+  const starters = allPlayers.filter(p => p.starter);
+  if (starters.length === 0) {
+    el.innerHTML = `<div class="unavail-note">Projections loading... Stats appear once game data is live.<br><br>If proxy is configured, full pre-game projections with season averages will appear here.</div>`;
+    return;
+  }
+
+  renderLiveStatsProjections(eventId, starters);
+}
+
+function renderLiveStatsProjections(eventId, players) {
+  const el = document.getElementById(`pane-proj-${eventId}`);
+  let html = `<div class="data-badge" style="display:inline-block;margin-bottom:12px">LIVE STATS — Tap player for full prop analysis</div><div class="proj-cards">`;
+
+  players.slice(0, 8).forEach(p => {
+    const pts = parseFloat(p.stats[0] || 0);
+    const ast = parseFloat(p.stats[1] || 0);
+    const reb = parseFloat(p.stats[2] || 0);
+    const threes = parseFloat(p.stats[3] || 0);
+    const conf = Math.min(92, Math.max(15, 50 + (pts >= 20 ? 20 : pts >= 14 ? 10 : pts < 7 ? -20 : 0) + (reb >= 7 ? 8 : 0) + (ast >= 6 ? 8 : 0)));
+    const verdict = conf >= 68 ? 'take' : conf >= 44 ? 'risky' : 'avoid';
+    const icon = verdict === 'take' ? '✓' : verdict === 'risky' ? '~' : '✕';
+    const label = verdict === 'take' ? 'TAKE' : verdict === 'risky' ? 'RISKY' : 'AVOID';
+
+    html += `
+      <div class="verdict-card ${verdict}" onclick="this.classList.toggle('open')">
+        <div class="verdict-top">
+          <div class="verdict-left">
+            <div class="verdict-icon">${icon}</div>
+            <div class="verdict-player">
+              <div class="verdict-name">${p.athlete?.shortName || p.athlete?.displayName || '?'}</div>
+              <div class="verdict-sub">${p.team?.abbreviation || ''} · ${p.athlete?.position?.abbreviation || ''}</div>
+            </div>
+          </div>
+          <div class="verdict-right">
+            <div class="verdict-label">${label}</div>
+            <div class="conf-pct">${conf}%</div>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+        <div class="verdict-detail">
+          <div class="prop-lines">
+            ${propLine('Points', pts, pts, 'pts')}
+            ${propLine('Rebounds', reb, reb, 'reb')}
+            ${propLine('Assists', ast, ast, 'ast')}
+            ${propLine('3-Pointers', threes, threes, '3pm')}
+          </div>
+          <div class="reasoning-block">
+            <div class="reasoning-title">Why</div>
+            ${pts >= 20 ? `<div class="reason-item positive"><div class="reason-bullet"></div><span>Currently on pace for strong scoring game</span></div>` : ''}
+            ${pts < 10 ? `<div class="reason-item negative"><div class="reason-bullet"></div><span>Scoring well below typical output this game</span></div>` : ''}
+            ${reb >= 8 ? `<div class="reason-item positive"><div class="reason-bullet"></div><span>Strong on the boards — rebounding props look good</span></div>` : ''}
+            ${ast >= 6 ? `<div class="reason-item positive"><div class="reason-bullet"></div><span>Facilitating well — assist props trending positive</span></div>` : ''}
+            <div class="reason-item neutral"><div class="reason-bullet"></div><span>Live stats only — season averages load via proxy</span></div>
+          </div>
+          <button class="add-prop-btn" style="margin-top:10px;width:100%;padding:10px" onclick="event.stopPropagation();showPropSheet('${esc(p.athlete?.displayName||'')}','${esc(p.team?.shortDisplayName||'')}','${p.athlete?.id||''}')">
+            + Add to Parlay Builder
+          </button>
+        </div>
+      </div>`;
+  });
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// Full projections when NBA stats proxy is available
+function renderFullProjections(eventId, espnData, nbaStats) {
+  const el = document.getElementById(`pane-proj-${eventId}`);
+  const players = nbaStats.players || [];
+
+  if (players.length === 0) {
+    renderProjectionsFromESPN(eventId, espnData);
+    return;
+  }
+
+  let html = `<div class="data-badge" style="display:inline-block;margin-bottom:12px">NBA STATS API · Season averages + last 5 + splits</div><div class="proj-cards">`;
+
+  players.forEach(p => {
+    const avg = p.seasonAvg || {};
+    const l5 = p.last5Avg || {};
+    const l10 = p.last10Avg || {};
+    const home = p.homeAvg || {};
+    const away = p.awayAvg || {};
+    const isHome = p.isHome;
+
+    const relevantAvg = isHome ? home : away;
+    const ptsAvg = parseFloat(relevantAvg.PTS || avg.PTS || 0);
+    const rebAvg = parseFloat(relevantAvg.REB || avg.REB || 0);
+    const astAvg = parseFloat(relevantAvg.AST || avg.AST || 0);
+    const threesAvg = parseFloat(relevantAvg.FG3M || avg.FG3M || 0);
+    const l5pts = parseFloat(l5.PTS || ptsAvg);
+
+    // Calculate confidence based on consistency
+    const ptsTrend = l5pts >= ptsAvg ? 1 : (l5pts >= ptsAvg * 0.85 ? 0 : -1);
+    const baseConf = 55 + (ptsTrend * 15);
+    const conf = Math.min(92, Math.max(20, baseConf));
+    const verdict = conf >= 68 ? 'take' : conf >= 44 ? 'risky' : 'avoid';
+    const icon = verdict === 'take' ? '✓' : verdict === 'risky' ? '~' : '✕';
+    const label = verdict === 'take' ? 'TAKE' : verdict === 'risky' ? 'RISKY' : 'AVOID';
+
+    html += `
+      <div class="verdict-card ${verdict}" onclick="this.classList.toggle('open')">
+        <div class="verdict-top">
+          <div class="verdict-left">
+            <div class="verdict-icon">${icon}</div>
+            <div class="verdict-player">
+              <div class="verdict-name">${p.name}</div>
+              <div class="verdict-sub">${p.team} · ${isHome ? 'HOME' : 'AWAY'}</div>
+            </div>
+          </div>
+          <div class="verdict-right">
+            <div class="verdict-label">${label}</div>
+            <div class="conf-pct">${conf}%</div>
+            <svg class="chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+        <div class="verdict-detail">
+          <div class="prop-lines">
+            ${fullPropLine('Points', ptsAvg, l5pts, avg.PTS, 'pts')}
+            ${fullPropLine('Rebounds', rebAvg, l5.REB, avg.REB, 'reb')}
+            ${fullPropLine('Assists', astAvg, l5.AST, avg.AST, 'ast')}
+            ${fullPropLine('3-Pointers', threesAvg, l5.FG3M, avg.FG3M, '3pm')}
+          </div>
+          <div class="reasoning-block">
+            <div class="reasoning-title">Why — Data Breakdown</div>
+            <div class="reason-item ${ptsTrend >= 0 ? 'positive' : 'negative'}">
+              <div class="reason-bullet"></div>
+              <span>Last 5 avg: <strong>${l5pts.toFixed(1)} pts</strong> vs season avg <strong>${parseFloat(avg.PTS||0).toFixed(1)}</strong> — ${ptsTrend >= 0 ? 'trending up ↑' : 'trending down ↓'}</span>
+            </div>
+            <div class="reason-item neutral">
+              <div class="reason-bullet"></div>
+              <span>${isHome ? 'Home' : 'Away'} avg: <strong>${ptsAvg.toFixed(1)} pts / ${rebAvg.toFixed(1)} reb / ${astAvg.toFixed(1)} ast</strong></span>
+            </div>
+            ${l10.PTS ? `<div class="reason-item neutral"><div class="reason-bullet"></div><span>Last 10 avg: ${parseFloat(l10.PTS).toFixed(1)} pts</span></div>` : ''}
+          </div>
+          <button class="add-prop-btn" style="margin-top:10px;width:100%;padding:10px" onclick="event.stopPropagation();showPropSheetWithData('${esc(p.name)}','${esc(p.team)}','${p.playerId}',${ptsAvg},${rebAvg},${astAvg},${threesAvg})">
+            + Add to Parlay Builder
+          </button>
+        </div>
+      </div>`;
+  });
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function propLine(label, actual, avg, stat) {
+  const a = parseFloat(actual || 0);
+  const tag = a >= 20 && stat === 'pts' ? 'tag-take' : a < 8 && stat === 'pts' ? 'tag-avoid' : 'tag-na';
+  const tagLabel = a >= 20 && stat === 'pts' ? 'HIGH' : a < 8 && stat === 'pts' ? 'LOW' : '—';
+  return `
+    <div class="prop-line">
+      <div class="prop-name">${label}</div>
+      <div class="prop-vals">
+        <div class="prop-avg">${a.toFixed(1)}<span>current</span></div>
+        <div class="prop-verdict-tag ${tag}">${tagLabel}</div>
+      </div>
+    </div>`;
+}
+
+function fullPropLine(label, splitAvg, l5, seasonAvg, stat) {
+  const sp = parseFloat(splitAvg || 0);
+  const l = parseFloat(l5 || sp);
+  const s = parseFloat(seasonAvg || sp);
+  const trend = l >= s * 0.9 ? 'tag-take' : 'tag-avoid';
+  const trendLabel = l >= s * 0.9 ? 'GOOD' : 'WEAK';
+  return `
+    <div class="prop-line">
+      <div class="prop-name">${label}</div>
+      <div class="prop-vals">
+        <div class="prop-avg">${sp.toFixed(1)}<span>split avg</span></div>
+        <div class="prop-avg">${l.toFixed(1)}<span>last 5</span></div>
+        <div class="prop-avg">${s.toFixed(1)}<span>season</span></div>
+        <div class="prop-verdict-tag ${trend}">${trendLabel}</div>
+      </div>
+    </div>`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VENUE + H2H
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderVenueH2H(eventId, data) {
+  const el = document.getElementById(`pane-venue-${eventId}`);
+  const venue = data.gameInfo?.venue;
+  const competitors = data.header?.competitions?.[0]?.competitors || [];
+  const home = competitors.find(c => c.homeAway === 'home') || {};
+  const away = competitors.find(c => c.homeAway === 'away') || {};
+
+  let html = `<div class="intel-grid">`;
+
+  // Venue info
+  if (venue) {
+    html += `
+      <div class="intel-block">
+        <div class="intel-block-title">📍 Venue</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px">${venue.fullName || 'Unknown'}</div>
+        <div style="font-size:12px;color:var(--text2)">${venue.address?.city || ''}${venue.address?.state ? ', '+venue.address.state : ''}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">${venue.indoor ? 'INDOOR' : ''} ${venue.grass ? '· GRASS' : ''}</div>
+      </div>`;
+  }
+
+  // Team records
+  html += `
+    <div class="intel-block">
+      <div class="intel-block-title">📊 Records</div>
+      <div class="game-log-row">
+        <div class="log-matchup">${away.team?.displayName || 'Away'}</div>
+        <div class="log-result ${away.records?.[0]?.summary ? '' : ''}">${away.records?.[0]?.summary || '?'}</div>
+      </div>
+      <div class="game-log-row">
+        <div class="log-matchup">${home.team?.displayName || 'Home'} (HOME)</div>
+        <div class="log-result">${home.records?.[0]?.summary || '?'}</div>
+      </div>
+      ${home.records?.[1] ? `<div class="game-log-row"><div class="log-matchup">Home record</div><div class="log-result">${home.records[1].summary}</div></div>` : ''}
+      ${away.records?.[1] ? `<div class="game-log-row"><div class="log-matchup">Away record</div><div class="log-result">${away.records[1].summary}</div></div>` : ''}
+    </div>`;
+
+  // Proxy venue history note
+  html += `
+    <div class="intel-block">
+      <div class="intel-block-title">🏟 Last 5 at This Venue</div>
+      <div class="unavail-note" style="text-align:left;font-size:12px;padding:4px 0">
+        ${CONFIG.PROXY_URL.includes('YOUR-RAILWAY')
+          ? 'Deploy the proxy to load: last 5 home games at this arena with scores, results and key player stats.'
+          : 'Loading venue history from NBA Stats...'}
+      </div>
+    </div>
+    <div class="intel-block">
+      <div class="intel-block-title">🔁 Last 5 H2H (Any Venue)</div>
+      <div class="unavail-note" style="text-align:left;font-size:12px;padding:4px 0">
+        ${CONFIG.PROXY_URL.includes('YOUR-RAILWAY')
+          ? 'Deploy the proxy to load: last 5 matchups between these two teams with final scores.'
+          : 'Loading head-to-head history...'}
+      </div>
+    </div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+
+  // Try to load from proxy
+  loadVenueData(eventId, data);
+}
+
+async function loadVenueData(eventId, data) {
+  if (CONFIG.PROXY_URL.includes('YOUR-RAILWAY')) return;
+  const competitors = data.header?.competitions?.[0]?.competitors || [];
+  const home = competitors.find(c => c.homeAway === 'home') || {};
+  const away = competitors.find(c => c.homeAway === 'away') || {};
+
+  try {
+    const homeTeamId = home.team?.id;
+    const awayTeamId = away.team?.id;
+
+    if (homeTeamId) {
+      const venueData = await proxyFetch(`/api/venue-history?team_id=${homeTeamId}`);
+      if (venueData?.home_games) renderVenueGames(eventId, venueData.home_games, home.team?.displayName);
+    }
+  } catch(e) { console.error('Venue data error', e); }
+}
+
+function renderVenueGames(eventId, games, teamName) {
+  const el = document.getElementById(`pane-venue-${eventId}`);
+  const venueBlock = el.querySelector('.intel-block:nth-child(3)');
+  if (!venueBlock) return;
+
+  let html = `<div class="intel-block-title">🏟 Last 5 at This Venue — ${teamName}</div>`;
+  const recent = games.slice(0, 5);
+  recent.forEach(g => {
+    const isWin = g.WL === 'W';
+    const matchup = g.MATCHUP || '';
+    const date = g.GAME_DATE || '';
+    html += `
+      <div class="game-log-row">
+        <div class="log-date">${date}</div>
+        <div class="log-matchup">${matchup}</div>
+        <div class="log-result ${isWin ? 'win' : 'loss'}">${g.WL}</div>
+        <div class="log-score">${g.PTS}—${g.OPP_PTS || '?'}</div>
+      </div>`;
+  });
+
+  venueBlock.innerHTML = html;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GAME INTEL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderGameIntel(eventId, data) {
+  const el = document.getElementById(`pane-game-${eventId}`);
+  const leaders = data.leaders || [];
+  const competitors = data.header?.competitions?.[0]?.competitors || [];
+  const home = competitors.find(c => c.homeAway === 'home') || {};
+  const away = competitors.find(c => c.homeAway === 'away') || {};
+
+  let html = `<div class="intel-grid">`;
+
+  if (leaders.length > 0) {
+    html += `<div class="intel-block"><div class="intel-block-title">🏆 Statistical Leaders</div>`;
+    leaders.slice(0, 5).forEach(cat => {
+      const leader = cat.leaders?.[0];
+      if (!leader) return;
+      html += `
+        <div class="game-log-row">
+          <div class="log-matchup">${cat.name || ''}</div>
+          <div style="font-size:12px;color:var(--text2)">${leader.athlete?.shortName || '?'}</div>
+          <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent)">${leader.displayValue || ''}</div>
+        </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `
+    <div class="intel-block">
+      <div class="intel-block-title">⚠ Pre-Game Checklist</div>
+      <div class="reason-item negative"><div class="reason-bullet" style="background:var(--avoid)"></div><span>Check Injuries tab — never lock a player listed QUESTIONABLE or OUT</span></div>
+      <div class="reason-item negative"><div class="reason-bullet" style="background:var(--avoid)"></div><span>Verify lineups are confirmed before tip-off (Lineups tab)</span></div>
+      <div class="reason-item neutral"><div class="reason-bullet" style="background:var(--risky)"></div><span>Away players average ~15% less than home — adjust line expectations</span></div>
+      <div class="reason-item positive"><div class="reason-bullet" style="background:var(--take)"></div><span>Back-to-back games = tired stars = reduced efficiency = lower props safer</span></div>
+      <div class="reason-item positive"><div class="reason-bullet" style="background:var(--take)"></div><span>Star vs weak interior defense = points/rebounds props more favorable</span></div>
+    </div>`;
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// NBA STATS BACKGROUND LOAD
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadNBAStats(eventId, espnData) {
+  if (CONFIG.PROXY_URL.includes('YOUR-RAILWAY')) return;
+
+  const boxTeams = espnData.boxscore?.teams || [];
+  if (boxTeams.length < 2) return;
+
+  const competitors = espnData.header?.competitions?.[0]?.competitors || [];
+  const home = competitors.find(c => c.homeAway === 'home') || {};
+
+  const playerResults = [];
+
+  for (const team of boxTeams) {
+    const isHome = team.team?.id === home.team?.id;
+    const starters = (team.athletes || []).filter(a => a.starter).slice(0, 5);
+
+    for (const athlete of starters) {
+      const name = athlete.athlete?.displayName || '';
+      if (!name) continue;
+
+      try {
+        // Search for NBA player ID
+        const searchRes = await proxyFetch(`/api/player-search?name=${encodeURIComponent(name)}`);
+        const nbaPlayer = searchRes?.players?.[0];
+        if (!nbaPlayer) continue;
+
+        const playerId = nbaPlayer.PERSON_ID;
+
+        // Fetch splits (last5, last10, home/away)
+        const splits = await proxyFetch(`/api/player/${playerId}/splits`);
+        if (!splits) continue;
+
+        const last5 = splits.last5?.[0] || {};
+        const last10 = splits.last10?.[0] || {};
+        const homeAway = splits.homeAway || [];
+        const homeStats = homeAway.find(r => r.GROUP_VALUE === 'Home') || {};
+        const awayStats = homeAway.find(r => r.GROUP_VALUE === 'Road') || {};
+
+        playerResults.push({
+          name,
+          team: team.team?.abbreviation || '',
+          playerId,
+          isHome,
+          seasonAvg: { PTS: nbaPlayer.PTS, REB: nbaPlayer.REB, AST: nbaPlayer.AST, FG3M: nbaPlayer.FG3M },
+          last5Avg: { PTS: last5.PTS, REB: last5.REB, AST: last5.AST, FG3M: last5.FG3M },
+          last10Avg: { PTS: last10.PTS, REB: last10.REB, AST: last10.AST, FG3M: last10.FG3M },
+          homeAvg: { PTS: homeStats.PTS, REB: homeStats.REB, AST: homeStats.AST, FG3M: homeStats.FG3M },
+          awayAvg: { PTS: awayStats.PTS, REB: awayStats.REB, AST: awayStats.AST, FG3M: awayStats.FG3M },
+        });
+      } catch(e) {
+        console.error('Player stats error', name, e);
+      }
+    }
+  }
+
+  if (playerResults.length > 0) {
+    S.playerCache[eventId] = { players: playerResults };
+    renderFullProjections(eventId, espnData, S.playerCache[eventId]);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PROP SHEET
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const PROPS = [
+  { label: 'Over 10.5 Points', stat: 'PTS', line: 10.5 },
+  { label: 'Over 15.5 Points', stat: 'PTS', line: 15.5 },
+  { label: 'Over 20.5 Points', stat: 'PTS', line: 20.5 },
+  { label: 'Over 25.5 Points', stat: 'PTS', line: 25.5 },
+  { label: 'Over 30.5 Points', stat: 'PTS', line: 30.5 },
+  { label: 'Over 3.5 Rebounds', stat: 'REB', line: 3.5 },
+  { label: 'Over 6.5 Rebounds', stat: 'REB', line: 6.5 },
+  { label: 'Over 9.5 Rebounds', stat: 'REB', line: 9.5 },
+  { label: 'Over 3.5 Assists', stat: 'AST', line: 3.5 },
+  { label: 'Over 6.5 Assists', stat: 'AST', line: 6.5 },
+  { label: 'Over 9.5 Assists', stat: 'AST', line: 9.5 },
+  { label: 'Over 1.5 Three-Pointers', stat: '3PM', line: 1.5 },
+  { label: 'Over 2.5 Three-Pointers', stat: '3PM', line: 2.5 },
+  { label: 'Over 3.5 Three-Pointers', stat: '3PM', line: 3.5 },
+  { label: 'Over 1.5 Steals', stat: 'STL', line: 1.5 },
+  { label: 'Over 1.5 Blocks', stat: 'BLK', line: 1.5 },
+  { label: 'Over 2.5 Turnovers', stat: 'TO', line: 2.5 },
+  { label: 'Over 25.5 Pts+Reb', stat: 'PR', line: 25.5 },
+  { label: 'Over 25.5 Pts+Ast', stat: 'PA', line: 25.5 },
+  { label: 'Double-Double', stat: 'DD', line: 1 },
+];
+
+function showPropSheet(playerName, teamName, athleteId, seasonData = null) {
+  const sheet = document.getElementById('propSheet');
+  const inner = document.getElementById('propSheetInner');
+
+  let html = `
+    <div class="modal-handle"></div>
+    <div class="sheet-title">${playerName}</div>
+    <div class="sheet-sub">${teamName} · PICK A PROP</div>
+    <div class="prop-options">`;
+
+  PROPS.forEach(p => {
+    const already = S.parlayLegs.some(l => l.athleteId === athleteId && l.stat === p.stat && l.line === p.line);
+    const verdict = seasonData ? getPropVerdict(p.stat, p.line, seasonData) : { cls: 'tag-na', label: '—' };
+    html += `
+      <div class="prop-option ${already ? 'disabled' : ''}" onclick="addLeg('${esc(playerName)}','${esc(teamName)}','${athleteId}','${p.label}','${p.stat}',${p.line})">
+        <div class="po-label">${p.label}</div>
+        <div class="po-verdict">
+          <span class="prop-verdict-tag ${verdict.cls}">${verdict.label}</span>
+          ${already ? '<span style="font-size:11px;color:var(--text3);font-family:var(--mono)">ADDED</span>' : ''}
+        </div>
+      </div>`;
+  });
+
+  html += `</div><button class="cancel-btn" onclick="closePropSheet()">Cancel</button>`;
+  inner.innerHTML = html;
+  sheet.classList.add('open');
+}
+
+function showPropSheetWithData(playerName, teamName, athleteId, pts, reb, ast, threes) {
+  const seasonData = { pts, reb, ast, threes };
+  showPropSheet(playerName, teamName, athleteId, seasonData);
+}
+
+function getPropVerdict(stat, line, data) {
+  let avg = 0;
+  if (stat === 'PTS') avg = data.pts || 0;
+  else if (stat === 'REB') avg = data.reb || 0;
+  else if (stat === 'AST') avg = data.ast || 0;
+  else if (stat === '3PM') avg = data.threes || 0;
+  else return { cls: 'tag-na', label: '—' };
+
+  const ratio = avg / line;
+  if (ratio >= 1.15) return { cls: 'tag-take', label: 'TAKE' };
+  if (ratio >= 0.9) return { cls: 'tag-risky', label: 'RISKY' };
+  return { cls: 'tag-avoid', label: 'AVOID' };
+}
+
+function closePropSheet() {
+  document.getElementById('propSheet').classList.remove('open');
+}
+
+function addLeg(playerName, teamName, athleteId, propLabel, stat, line) {
+  closePropSheet();
+  const existing = S.parlayLegs.find(l => l.athleteId === athleteId && l.stat === stat);
+  if (existing) return;
+  S.parlayLegs.push({ playerName, teamName, athleteId, propLabel, stat, line });
+  updateParlayFloat();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PARLAY
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateParlayFloat() {
+  const count = S.parlayLegs.length;
+  document.getElementById('parlayBadge').textContent = count;
+  document.getElementById('parlayFloat').classList.toggle('show', count > 0);
+}
+
+function openParlay() {
+  renderParlayModal();
+  document.getElementById('parlayOverlay').classList.add('open');
+}
+
+function handleOverlayClick(e, id) {
+  if (e.target === e.currentTarget) document.getElementById(id).classList.remove('open');
+}
+
+function renderParlayModal() {
+  const legsEl = document.getElementById('parlayLegs');
+  const analysisEl = document.getElementById('parlayAnalysis');
+
+  if (S.parlayLegs.length === 0) {
+    legsEl.innerHTML = '<div class="unavail-note">No props added yet.<br>Tap + on any player to add a leg.</div>';
+    analysisEl.innerHTML = '';
+    return;
+  }
+
+  legsEl.innerHTML = S.parlayLegs.map((leg, idx) => {
+    const risky = isLegRisky(leg);
+    return `
+      <div class="parlay-leg">
+        <div class="leg-info">
+          <div class="leg-player">${leg.playerName}</div>
+          <div class="leg-prop">${leg.teamName} · ${leg.propLabel}</div>
+        </div>
+        <div class="leg-right">
+          <span class="prop-verdict-tag ${risky ? 'tag-risky' : 'tag-take'}">${risky ? 'RISKY' : 'OK'}</span>
+          <button class="remove-leg" onclick="removeLeg(${idx})">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Analysis
+  const weakLegs = S.parlayLegs.filter(isLegRisky);
+  const legCount = S.parlayLegs.length;
+  const baseConf = Math.max(8, 88 - (weakLegs.length * 20) - (legCount > 4 ? (legCount - 4) * 8 : 0));
+  const avClass = baseConf >= 65 ? 'av-good' : baseConf >= 40 ? 'av-warn' : 'av-bad';
+  const avText = baseConf >= 65
+    ? `✓ Looks reasonable. ${legCount} legs. Combined estimate: ${baseConf}% confidence.`
+    : baseConf >= 40
+    ? `⚠ Risky parlay. ${weakLegs.length > 0 ? `Weak leg${weakLegs.length > 1 ? 's' : ''}: ${weakLegs.map(l => l.playerName.split(' ').pop()).join(', ')}.` : ''} Consider removing high-risk props.`
+    : `✕ Do not lock this. Too many risky legs (${weakLegs.length}/${legCount}). This parlay is unlikely to hit based on the lines vs averages.`;
+
+  analysisEl.innerHTML = `
+    <div class="parlay-analysis">
+      <div class="analysis-row">
+        <span class="analysis-label">Total legs</span>
+        <strong>${legCount}</strong>
+      </div>
+      <div class="analysis-row">
+        <span class="analysis-label">Risky legs</span>
+        <strong style="color:${weakLegs.length > 0 ? 'var(--avoid)' : 'var(--take)'}">${weakLegs.length}</strong>
+      </div>
+      <div class="analysis-row">
+        <span class="analysis-label">Est. combined confidence</span>
+        <strong style="color:${baseConf >= 65 ? 'var(--take)' : baseConf >= 40 ? 'var(--risky)' : 'var(--avoid)'}">${baseConf}%</strong>
+      </div>
+      <div class="analysis-verdict ${avClass}">${avText}</div>
+    </div>`;
+}
+
+function isLegRisky(leg) {
+  if (leg.stat === 'PTS' && leg.line >= 25) return true;
+  if (leg.stat === 'REB' && leg.line >= 9) return true;
+  if (leg.stat === 'AST' && leg.line >= 8) return true;
+  if (leg.stat === '3PM' && leg.line >= 3) return true;
+  if (leg.stat === 'STL' || leg.stat === 'BLK') return true;
+  return false;
+}
+
+function removeLeg(idx) {
+  S.parlayLegs.splice(idx, 1);
+  updateParlayFloat();
+  renderParlayModal();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AUTO REFRESH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function startAutoRefresh() {
+  S.nextRefresh = Date.now() + CONFIG.REFRESH_SEC * 1000;
+
+  if (S.timerInterval) clearInterval(S.timerInterval);
+  S.timerInterval = setInterval(() => {
+    const rem = Math.max(0, Math.ceil((S.nextRefresh - Date.now()) / 1000));
+    document.getElementById('countdown').textContent = rem > 0 ? `${rem}s` : 'refreshing';
+  }, 1000);
+
+  if (S.refreshInterval) clearInterval(S.refreshInterval);
+  S.refreshInterval = setInterval(() => {
+    loadGames();
+    if (S.activeGame) {
+      delete S.gameCache[S.activeGame];
+      loadPanel(S.activeGame);
+    }
+    S.nextRefresh = Date.now() + CONFIG.REFRESH_SEC * 1000;
+  }, CONFIG.REFRESH_SEC * 1000);
+}
+
+function manualRefresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spinning');
+  if (S.refreshInterval) clearInterval(S.refreshInterval);
+  if (S.timerInterval) clearInterval(S.timerInterval);
+
+  loadGames().then(() => {
+    if (S.activeGame) {
+      delete S.gameCache[S.activeGame];
+      loadPanel(S.activeGame);
+    }
+    btn.classList.remove('spinning');
+    startAutoRefresh();
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// UTILS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function esc(str) {
+  return (str || '').replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// START
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+init();
+</script>
+
+<!-- PWA Service Worker Registration -->
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.log('SW:', e));
+}
+</script>
+</body>
+</html>
