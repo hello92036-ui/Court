@@ -266,7 +266,7 @@ main{max-width:600px;margin:0 auto;padding:16px 12px 100px}
 // Get it free at: app.balldontlie.io
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const CFG = {
-  BDL_KEY: 'd41d7356-28bc-496e-be5c-a5404e74c4b0',  // <-- paste key here
+  BDL_KEY: 'YOUR-BALLDONTLIE-KEY',  // <-- paste key here
   BDL: 'https://api.balldontlie.io/v1',
   ESPN: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba',
   REFRESH_SEC: 120,
@@ -376,11 +376,19 @@ async function espnFetch(path) {
 // BallDontLie — works directly from browser, no proxy needed
 async function bdlFetch(path) {
   if (!CFG.BDL_KEY || CFG.BDL_KEY.includes('YOUR-')) return null;
-  const r = await fetch(CFG.BDL + path, {
-    headers: { Authorization: CFG.BDL_KEY }
-  });
-  if (!r.ok) return null;
-  return r.json();
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const r = await fetch(CFG.BDL + path, {
+      headers: { Authorization: CFG.BDL_KEY },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    return r.json();
+  } catch(e) {
+    return null;
+  }
 }
 
 // Safe text — prevents XSS from API player names
@@ -405,13 +413,19 @@ async function loadGames() {
     const now = new Date();
     let emptyStreak = 0;
 
-    for (let i = 0; i <= 8; i++) {
+    for (let i = -1; i <= 8; i++) {
       const d = new Date(now.getTime() + i * 86400000);
       try {
         const data = await espnFetch(`/scoreboard?dates=${espnDateStr(d)}`);
         const events = (data.events || []).filter(ev => {
           const cs = ev.competitions?.[0]?.competitors || [];
-          return cs.some(c => c.team?.abbreviation && c.team.abbreviation !== 'TBD');
+          const hasTeams = cs.some(c => c.team?.abbreviation && c.team.abbreviation !== 'TBD');
+          // For yesterday (i=-1), only include live or upcoming games, skip finals
+          if (i === -1) {
+            const sn = ev.status?.type?.name || '';
+            return hasTeams && sn !== 'STATUS_FINAL';
+          }
+          return hasTeams;
         });
         if (!events.length) { emptyStreak++; if (emptyStreak >= 2) break; }
         else { emptyStreak = 0; events.forEach(ev => allGames.push(ev)); }
@@ -1024,6 +1038,19 @@ async function loadBDLStats(gameId, espnData) {
   if (results.length) {
     S.playerCache[gameId] = { players: results };
     rFullProj(gameId, S.playerCache[gameId]);
+  } else {
+    // Nothing loaded — show honest message instead of endless spinner
+    const el = document.getElementById(`pane-proj-${gameId}`);
+    if (el && el.querySelector('.load-txt')) {
+      el.innerHTML = `<div class="data-badge">BDL · 2024-25 SEASON</div>
+        <div class="empty-note">
+          Could not load player stats for this game.<br><br>
+          This can happen when:<br>
+          • Rosters not yet confirmed (check closer to tip-off)<br>
+          • API rate limit hit — wait 1 min and refresh<br>
+          • Key issue — verify at app.balldontlie.io
+        </div>`;
+    }
   }
 }
 
@@ -1042,10 +1069,16 @@ function rVenue(id, data) {
   const home  = comps.find(c => c.homeAway === 'home') || {};
   const away  = comps.find(c => c.homeAway === 'away') || {};
 
-  const homeRec = safeText(home.records?.[0]?.summary || '?');
-  const awayRec = safeText(away.records?.[0]?.summary || '?');
-  const homeHomeRec = home.records?.[1]?.summary || '';
-  const awayAwayRec = away.records?.[1]?.summary || '';
+  // Records come from scoreboard (S.games), not summary endpoint
+  const scoreGame = S.games.find(g => g.id === id) || {};
+  const scoreComps = scoreGame.competitions?.[0]?.competitors || [];
+  const scoreHome = scoreComps.find(c => c.homeAway === 'home') || home;
+  const scoreAway = scoreComps.find(c => c.homeAway === 'away') || away;
+
+  const homeRec     = safeText(scoreHome.records?.[0]?.summary || home.records?.[0]?.summary || '?');
+  const awayRec     = safeText(scoreAway.records?.[0]?.summary || away.records?.[0]?.summary || '?');
+  const homeHomeRec = scoreHome.records?.[1]?.summary || home.records?.[1]?.summary || '';
+  const awayAwayRec = scoreAway.records?.[1]?.summary || away.records?.[1]?.summary || '';
 
   let html = '<div class="intel-list">';
 
@@ -1112,15 +1145,21 @@ function rIntel(id, data) {
     </div>`;
   }
 
-  // Key matchup factors
+  // Key matchup factors — use scoreboard data for records
   const comps   = data.header?.competitions?.[0]?.competitors || [];
   const home    = comps.find(c => c.homeAway === 'home') || {};
   const away    = comps.find(c => c.homeAway === 'away') || {};
-  const homeRec = home.records?.[0]?.summary || '0-0';
-  const awayRec = away.records?.[0]?.summary || '0-0';
+  const scoreGame  = S.games.find(g => g.id === id) || {};
+  const scoreComps = scoreGame.competitions?.[0]?.competitors || [];
+  const scoreHome  = scoreComps.find(c => c.homeAway === 'home') || home;
+  const scoreAway  = scoreComps.find(c => c.homeAway === 'away') || away;
+  const homeRec = scoreHome.records?.[0]?.summary || home.records?.[0]?.summary || '0-0';
+  const awayRec = scoreAway.records?.[0]?.summary || away.records?.[0]?.summary || '0-0';
   const homeW   = parseInt(homeRec.split('-')[0] || '0');
   const awayW   = parseInt(awayRec.split('-')[0] || '0');
   const favored = homeW > awayW ? safeText(home.team?.abbreviation||'HOME') : safeText(away.team?.abbreviation||'AWAY');
+  const homeHomeRec = scoreHome.records?.[1]?.summary || home.records?.[1]?.summary || '?';
+  const awayAwayRec = scoreAway.records?.[1]?.summary || away.records?.[1]?.summary || '?';
 
   html += `<div class="intel-block">
     <div class="intel-block-title">📋 Matchup Overview</div>
@@ -1129,12 +1168,20 @@ function rIntel(id, data) {
       <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">${favored}</div>
     </div>
     <div class="log-row">
+      <div class="log-matchup">${safeText(home.team?.abbreviation||'HOME')} overall</div>
+      <div style="font-family:var(--mono);font-size:11px;">${safeText(homeRec)}</div>
+    </div>
+    <div class="log-row">
       <div class="log-matchup">${safeText(home.team?.abbreviation||'HOME')} home record</div>
-      <div style="font-family:var(--mono);font-size:11px;">${safeText(home.records?.[1]?.summary||'?')}</div>
+      <div style="font-family:var(--mono);font-size:11px;">${safeText(homeHomeRec)}</div>
+    </div>
+    <div class="log-row">
+      <div class="log-matchup">${safeText(away.team?.abbreviation||'AWAY')} overall</div>
+      <div style="font-family:var(--mono);font-size:11px;">${safeText(awayRec)}</div>
     </div>
     <div class="log-row">
       <div class="log-matchup">${safeText(away.team?.abbreviation||'AWAY')} away record</div>
-      <div style="font-family:var(--mono);font-size:11px;">${safeText(away.records?.[1]?.summary||'?')}</div>
+      <div style="font-family:var(--mono);font-size:11px;">${safeText(awayAwayRec)}</div>
     </div>
   </div>
 
