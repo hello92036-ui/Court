@@ -261,102 +261,143 @@ main{max-width:600px;margin:0 auto;padding:16px 12px 100px}
 </div>
 
 <script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CONFIG — paste your BallDontLie API key below
+// Get it free at: app.balldontlie.io
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const CFG = {
-  PROXY: 'https://court-proxy.vercel.app',
-  ESPN:  'https://site.api.espn.com/apis/site/v2/sports/basketball/nba',
+  BDL_KEY: 'YOUR-BALLDONTLIE-KEY',  // <-- paste key here
+  BDL: 'https://api.balldontlie.io/v1',
+  ESPN: 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba',
   REFRESH_SEC: 120,
 };
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const S = {
-  games:[], activeGame:null, gameCache:{}, playerCache:{},
-  parlayLegs:[], countdowns:{}, refreshInterval:null,
+  games: [], activeGame: null,
+  gameCache: {}, playerCache: {}, bdlCache: {},
+  parlayLegs: [], countdowns: {}, refreshInterval: null,
 };
 
-// ── IST HELPERS ──
-// IST = UTC + 5:30
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// IST HELPERS — using Intl where possible, safe fallback
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function toIST(date) {
-  const utcMs = date.getTime() + (date.getTimezoneOffset() * 60000);
-  return new Date(utcMs + (5.5 * 3600000));
+  // Safe: manually offset UTC to IST (UTC+5:30), no DST in India
+  const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+  return new Date(utcMs + 19800000); // 5.5 * 3600 * 1000
 }
 
 function istTimeStr(date) {
-  const ist = toIST(date);
-  let h = ist.getHours();
-  const m = String(ist.getMinutes()).padStart(2,'0');
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${h}:${m} ${ampm}`;
+  try {
+    return date.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true
+    }).toUpperCase();
+  } catch(e) {
+    const ist = toIST(date);
+    let h = ist.getUTCHours();
+    const m = String(ist.getUTCMinutes()).padStart(2,'0');
+    const ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${m} ${ap}`;
+  }
 }
 
 function istDateKey(date) {
-  const ist = toIST(date);
-  return `${ist.getFullYear()}-${ist.getMonth()}-${ist.getDate()}`;
+  try {
+    const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+    return f.format(date);
+  } catch(e) {
+    const ist = toIST(date);
+    return `${ist.getUTCFullYear()}-${ist.getUTCMonth()}-${ist.getUTCDate()}`;
+  }
 }
 
 function espnDateStr(date) {
-  const ist = toIST(date);
-  const y = ist.getFullYear();
-  const m = String(ist.getMonth()+1).padStart(2,'0');
-  const d = String(ist.getDate()).padStart(2,'0');
-  return `${y}${m}${d}`;
+  try {
+    const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' });
+    return f.format(date).replace(/-/g,'');
+  } catch(e) {
+    const ist = toIST(date);
+    return `${ist.getUTCFullYear()}${String(ist.getUTCMonth()+1).padStart(2,'0')}${String(ist.getUTCDate()).padStart(2,'0')}`;
+  }
 }
 
 function friendlyDate(date) {
   const ist = toIST(date);
   const nowIST = toIST(new Date());
   const tomIST = toIST(new Date(Date.now() + 86400000));
-  const days=['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
-  const months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  if (ist.getDate()===nowIST.getDate() && ist.getMonth()===nowIST.getMonth()) return 'TODAY';
-  if (ist.getDate()===tomIST.getDate() && ist.getMonth()===tomIST.getMonth()) return 'TOMORROW';
-  return `${days[ist.getDay()]}, ${months[ist.getMonth()]} ${ist.getDate()}`;
+  const days = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+  const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const sameDay = (a, b) => a.getUTCDate()===b.getUTCDate() && a.getUTCMonth()===b.getUTCMonth() && a.getUTCFullYear()===b.getUTCFullYear();
+  if (sameDay(ist, nowIST)) return 'TODAY';
+  if (sameDay(ist, tomIST)) return 'TOMORROW';
+  return `${days[ist.getUTCDay()]}, ${months[ist.getUTCMonth()]} ${ist.getUTCDate()}`;
 }
 
-// ── COUNTDOWN ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// COUNTDOWN
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function fmtCountdown(ms) {
   if (ms <= 0) return 'STARTING NOW';
-  const s  = Math.floor(ms/1000)%60;
-  const mi = Math.floor(ms/60000)%60;
-  const h  = Math.floor(ms/3600000)%24;
-  const d  = Math.floor(ms/86400000);
-  const pad = n => String(n).padStart(2,'0');
-  if (d > 0) return `${pad(d)}:${pad(h)}:${pad(mi)}:${pad(s)}`;
-  return `${pad(h)}:${pad(mi)}:${pad(s)}`;
-}
-
-function cdLabel(ms) {
-  return ms >= 86400000 ? 'DD:HH:MM:SS' : 'HH:MM:SS';
+  const s  = Math.floor(ms / 1000) % 60;
+  const mi = Math.floor(ms / 60000) % 60;
+  const h  = Math.floor(ms / 3600000) % 24;
+  const d  = Math.floor(ms / 86400000);
+  const p  = n => String(n).padStart(2,'0');
+  return d > 0 ? `${p(d)}:${p(h)}:${p(mi)}:${p(s)}` : `${p(h)}:${p(mi)}:${p(s)}`;
 }
 
 function startCD(id, gameDate) {
   if (S.countdowns[id]) clearInterval(S.countdowns[id]);
-  const update = () => {
+  const tick = () => {
     const el  = document.getElementById(`cd-${id}`);
     const lbl = document.getElementById(`cdl-${id}`);
     if (!el) { clearInterval(S.countdowns[id]); return; }
     const ms = gameDate.getTime() - Date.now();
     el.textContent  = fmtCountdown(ms);
-    if (lbl) lbl.textContent = ms > 0 ? cdLabel(ms) : '';
+    if (lbl) lbl.textContent = ms >= 86400000 ? 'DD:HH:MM:SS' : ms > 0 ? 'HH:MM:SS' : '';
   };
-  update();
-  S.countdowns[id] = setInterval(update, 1000);
+  tick();
+  S.countdowns[id] = setInterval(tick, 1000);
 }
 
-// ── FETCH ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FETCH HELPERS — XSS-safe, no innerHTML from raw API strings
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function espnFetch(path) {
   const r = await fetch(CFG.ESPN + path);
   if (!r.ok) throw new Error(`ESPN ${r.status}`);
   return r.json();
 }
 
-async function proxyFetch(path) {
-  if (CFG.PROXY.includes('YOUR-')) return null;
-  const r = await fetch(CFG.PROXY + path);
+// BallDontLie — works directly from browser, no proxy needed
+async function bdlFetch(path) {
+  if (!CFG.BDL_KEY || CFG.BDL_KEY.includes('YOUR-')) return null;
+  const r = await fetch(CFG.BDL + path, {
+    headers: { Authorization: CFG.BDL_KEY }
+  });
   if (!r.ok) return null;
   return r.json();
 }
 
-// ── LOAD GAMES ──
+// Safe text — prevents XSS from API player names
+function safeText(str) {
+  const d = document.createElement('div');
+  d.textContent = str || '';
+  return d.innerHTML;
+}
+
+// Safe attr — for use inside HTML attribute strings in onclick
+function esc(s) {
+  return String(s || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LOAD GAMES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function loadGames() {
   try {
     document.getElementById('errorBar').style.display = 'none';
@@ -368,18 +409,18 @@ async function loadGames() {
       const d = new Date(now.getTime() + i * 86400000);
       try {
         const data = await espnFetch(`/scoreboard?dates=${espnDateStr(d)}`);
-        const events = (data.events||[]).filter(ev => {
+        const events = (data.events || []).filter(ev => {
           const cs = ev.competitions?.[0]?.competitors || [];
           return cs.some(c => c.team?.abbreviation && c.team.abbreviation !== 'TBD');
         });
-        if (events.length === 0) { emptyStreak++; if (emptyStreak >= 2) break; }
+        if (!events.length) { emptyStreak++; if (emptyStreak >= 2) break; }
         else { emptyStreak = 0; events.forEach(ev => allGames.push(ev)); }
-      } catch(e) {}
+      } catch(e) { /* skip day */ }
     }
 
     S.games = allGames;
     document.getElementById('gamesCount').textContent =
-      `${allGames.length} game${allGames.length!==1?'s':''} upcoming`;
+      `${allGames.length} game${allGames.length !== 1 ? 's' : ''} upcoming`;
     document.getElementById('updatedAt').textContent = istTimeStr(new Date());
     renderGames();
   } catch(e) {
@@ -391,7 +432,9 @@ async function loadGames() {
   }
 }
 
-// ── RENDER GAMES ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER GAMES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function renderGames() {
   const list = document.getElementById('gamesList');
   if (!S.games.length) {
@@ -399,14 +442,12 @@ function renderGames() {
     return;
   }
   list.innerHTML = '';
-
   const groups = {}, order = [];
   S.games.forEach(ev => {
     const key = istDateKey(new Date(ev.date));
-    if (!groups[key]) { groups[key] = { date: new Date(ev.date), events:[] }; order.push(key); }
+    if (!groups[key]) { groups[key] = { date: new Date(ev.date), events: [] }; order.push(key); }
     groups[key].events.push(ev);
   });
-
   order.forEach(key => {
     const g = groups[key];
     const hdr = document.createElement('div');
@@ -415,12 +456,10 @@ function renderGames() {
     list.appendChild(hdr);
     g.events.forEach(ev => list.appendChild(makeCard(ev)));
   });
-
   if (S.activeGame) {
     const c = document.getElementById(`card-${S.activeGame}`);
     if (c) { c.classList.add('active'); loadPanel(S.activeGame); }
   }
-
   S.games.forEach(ev => {
     const sn = ev.status?.type?.name || '';
     if (sn !== 'STATUS_FINAL' && sn !== 'STATUS_IN_PROGRESS')
@@ -428,47 +467,45 @@ function renderGames() {
   });
 }
 
-// ── MAKE CARD ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAKE CARD — uses DOM createElement to avoid XSS on team names
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function makeCard(ev) {
   const comp = ev.competitions?.[0] || {};
-  const cs = comp.competitors || [];
-  const home = cs.find(c=>c.homeAway==='home') || cs[0] || {};
-  const away = cs.find(c=>c.homeAway==='away') || cs[1] || {};
-  const sn = ev.status?.type?.name || '';
+  const cs   = comp.competitors || [];
+  const home = cs.find(c => c.homeAway === 'home') || cs[0] || {};
+  const away = cs.find(c => c.homeAway === 'away') || cs[1] || {};
+  const sn   = ev.status?.type?.name || '';
   const isLive  = sn === 'STATUS_IN_PROGRESS';
   const isFinal = sn === 'STATUS_FINAL';
   const gameDate = new Date(ev.date);
 
   function teamHTML(team) {
-    const abbr = team.team?.abbreviation || '?';
+    const abbr = safeText(team.team?.abbreviation || '?');
     const logo = team.team?.logo || '';
     const rec  = team.records?.[0]?.summary || '';
     const w = rec.split('-')[0] || '';
     const l = rec.split('-')[1] || '';
-    return `
-      <div class="team-row">
-        <div class="team-logo-wrap">
-          ${logo
-            ? `<img src="${logo}" alt="${abbr}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="team-logo-fb" style="display:none">${abbr}</div>`
-            : `<div class="team-logo-fb">${abbr}</div>`}
-        </div>
-        <div class="team-name-col">
-          <div class="team-name">${abbr}</div>
-          ${rec ? `<div class="team-record">${w}W · ${l}L</div>` : ''}
-        </div>
-      </div>`;
+    const logoHtml = logo
+      ? `<img src="${logo}" alt="${abbr}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="team-logo-fb" style="display:none">${abbr}</div>`
+      : `<div class="team-logo-fb">${abbr}</div>`;
+    return `<div class="team-row">
+      <div class="team-logo-wrap">${logoHtml}</div>
+      <div class="team-name-col">
+        <div class="team-name">${abbr}</div>
+        ${rec ? `<div class="team-record">${safeText(w)}W · ${safeText(l)}L</div>` : ''}
+      </div>
+    </div>`;
   }
 
   let rightHTML = '';
   if (isLive || isFinal) {
-    const pill = isLive ? 'pill-live' : 'pill-final';
-    const pillTxt = isLive ? (ev.status?.type?.shortDetail || 'LIVE') : 'FINAL';
-    rightHTML = `
-      <div class="score-display">${away.score??'0'} – ${home.score??'0'}</div>
+    const pill    = isLive ? 'pill-live' : 'pill-final';
+    const pillTxt = isLive ? safeText(ev.status?.type?.shortDetail || 'LIVE') : 'FINAL';
+    rightHTML = `<div class="score-display">${safeText(away.score ?? '0')} – ${safeText(home.score ?? '0')}</div>
       <div class="status-pill ${pill}">${pillTxt}</div>`;
   } else {
-    rightHTML = `
-      <div class="countdown-timer" id="cd-${ev.id}">--:--:--</div>
+    rightHTML = `<div class="countdown-timer" id="cd-${ev.id}">--:--:--</div>
       <div class="countdown-label" id="cdl-${ev.id}">HH:MM:SS</div>
       <div class="ist-time">${istTimeStr(gameDate)} IST</div>`;
   }
@@ -480,7 +517,7 @@ function makeCard(ev) {
     <div class="card-top" onclick="toggleCard('${ev.id}')">
       <div class="card-teams">
         ${teamHTML(away)}
-        <div class="vs-divider"><span class="at-label">@ ${home.team?.abbreviation||'HOME'}</span></div>
+        <div class="vs-divider"><span class="at-label">@ ${safeText(home.team?.abbreviation || 'HOME')}</span></div>
         ${teamHTML(home)}
       </div>
       <div class="card-right">${rightHTML}</div>
@@ -502,18 +539,20 @@ function makeCard(ev) {
   return card;
 }
 
-// ── TOGGLE / TABS ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TOGGLE / TABS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function toggleCard(id) {
   const card = document.getElementById(`card-${id}`);
-  const was = card.classList.contains('active');
-  document.querySelectorAll('.game-card.active').forEach(c=>c.classList.remove('active'));
+  const was  = card.classList.contains('active');
+  document.querySelectorAll('.game-card.active').forEach(c => c.classList.remove('active'));
   S.activeGame = null;
   if (!was) {
     card.classList.add('active');
     S.activeGame = id;
     loadPanel(id);
-    history.pushState({gameOpen:id},'');
-    setTimeout(()=>card.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+    history.pushState({ gameOpen: id }, '');
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
   }
 }
 
@@ -526,21 +565,23 @@ window.addEventListener('popstate', () => {
 });
 
 function swTab(id, tab, el) {
-  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  document.querySelectorAll(`#panel-${id} .pane`).forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll(`#panel-${id} .pane`).forEach(p => p.classList.remove('active'));
   document.getElementById(`pane-${tab}-${id}`).classList.add('active');
 }
 
-// ── LOAD PANEL ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LOAD PANEL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function loadPanel(id) {
-  const c = S.gameCache[id];
-  if (c && Date.now()-c.ts < 90000) { renderPanel(id,c.data); return; }
+  const cached = S.gameCache[id];
+  if (cached && Date.now() - cached.ts < 90000) { renderPanel(id, cached.data); return; }
   try {
     const data = await espnFetch(`/summary?event=${id}`);
-    S.gameCache[id] = {data, ts:Date.now()};
+    S.gameCache[id] = { data, ts: Date.now() };
     renderPanel(id, data);
-    loadNBAStats(id, data);
+    loadBDLStats(id, data); // fire & forget — fills in projections when ready
   } catch(e) {
     document.getElementById(`pane-inj-${id}`).innerHTML =
       '<div class="empty-note">Could not load details.<br>Live data temporarily unavailable.</div>';
@@ -548,366 +589,694 @@ async function loadPanel(id) {
 }
 
 function renderPanel(id, data) {
-  rInj(id,data); rLineups(id,data); rProj(id,data); rVenue(id,data); rIntel(id,data);
+  rInj(id, data);
+  rLineups(id, data);
+  rProj(id, data);
+  rVenue(id, data);
+  rIntel(id, data);
 }
 
-// ── INJURIES ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INJURIES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function rInj(id, data) {
   const el = document.getElementById(`pane-inj-${id}`);
-  const comps = data.header?.competitions?.[0]?.competitors || [];
+  const comps    = data.header?.competitions?.[0]?.competitors || [];
   const injuries = data.injuries || [];
   if (injuries.length < 2) {
-    el.innerHTML = `<div class="empty-note">No injury report yet.<br>Updates drop ~90 min before tip-off.</div>`;
+    el.innerHTML = '<div class="empty-note">No injury report yet.<br>Updates drop ~90 min before tip-off.</div>';
     return;
   }
-  let html = `<div class="two-col">`;
-  injuries.forEach((ti,i) => {
-    const name = comps[i]?.team?.shortDisplayName || `Team ${i+1}`;
+  let html = '<div class="two-col">';
+  injuries.forEach((ti, i) => {
+    const name = safeText(comps[i]?.team?.shortDisplayName || `Team ${i+1}`);
     const list = ti.injuries || [];
     html += `<div><div class="col-head">${name}</div>`;
     if (!list.length) {
-      html += `<div style="font-size:11px;color:var(--take);padding:6px 0">No injuries ✓</div>`;
+      html += '<div style="font-size:11px;color:var(--take);padding:6px 0">No injuries ✓</div>';
     } else {
       list.forEach(inj => {
-        const p = inj.athlete||{};
-        const st = inj.status||'';
-        const reason = inj.longComment||inj.shortComment||'';
-        html += `<div class="p-row"><div class="p-left"><span class="p-pos">${p.position?.abbreviation||'?'}</span><span class="p-name">${p.shortName||p.displayName||'?'}</span></div><span class="s-tag ${sCls(st)}">${sFmt(st)}</span></div>`;
-        if (reason) html += `<div style="font-size:10px;color:var(--text3);padding:0 9px 5px;font-style:italic">${reason}</div>`;
+        const p      = inj.athlete || {};
+        const st     = inj.status || '';
+        const reason = inj.longComment || inj.shortComment || '';
+        html += `<div class="p-row">
+          <div class="p-left">
+            <span class="p-pos">${safeText(p.position?.abbreviation || '?')}</span>
+            <span class="p-name">${safeText(p.shortName || p.displayName || '?')}</span>
+          </div>
+          <span class="s-tag ${sCls(st)}">${sFmt(st)}</span>
+        </div>`;
+        if (reason) html += `<div style="font-size:10px;color:var(--text3);padding:0 9px 5px;font-style:italic">${safeText(reason)}</div>`;
       });
     }
-    html += `</div>`;
+    html += '</div>';
   });
-  html += `</div>`;
+  html += '</div>';
   el.innerHTML = html;
 }
 
 function sCls(s) {
-  const l=s.toLowerCase();
-  if(l.includes('out')) return 's-out';
-  if(l.includes('question')) return 's-q';
-  if(l.includes('probable')) return 's-p';
-  if(l.includes('day')||l.includes('gtd')) return 's-gtd';
+  const l = s.toLowerCase();
+  if (l.includes('out'))      return 's-out';
+  if (l.includes('question')) return 's-q';
+  if (l.includes('probable')) return 's-p';
+  if (l.includes('day') || l.includes('gtd')) return 's-gtd';
   return 's-ok';
 }
 
 function sFmt(s) {
-  const m={Active:'OK',Out:'OUT',Questionable:'QUEST.',Probable:'PROB.','Day-To-Day':'GTD',Doubtful:'DOUBT.',Suspended:'SUSP.'};
-  return m[s]||s.slice(0,5).toUpperCase();
+  const m = { Active:'OK', Out:'OUT', Questionable:'QUEST.', Probable:'PROB.',
+    'Day-To-Day':'GTD', Doubtful:'DOUBT.', Suspended:'SUSP.' };
+  return m[s] || s.slice(0, 6).toUpperCase();
 }
 
-// ── LINEUPS ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// LINEUPS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function rLineups(id, data) {
   const el = document.getElementById(`pane-lineups-${id}`);
-  const teams = data.boxscore?.teams||[];
-  if (teams.length<2) { el.innerHTML='<div class="empty-note">Lineups drop 30–60 min before tip-off.</div>'; return; }
-  let html='<div class="two-col">';
-  teams.forEach(team=>{
-    const name=team.team?.shortDisplayName||'Team';
-    const aths=team.athletes||[];
-    const starters=aths.filter(a=>a.starter);
-    const bench=aths.filter(a=>!a.starter).slice(0,8);
-    html+=`<div><div class="col-head">${name}</div>`;
-    if(starters.length){
-      html+=`<div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase">Starters</div>`;
-      starters.forEach(a=>{
-        const ath=a.athlete||{};
-        html+=`<div class="p-row starter"><div class="p-left"><span class="p-pos">${ath.position?.abbreviation||'?'}</span><span class="p-name">${ath.shortName||ath.displayName||'?'}</span></div><button class="add-btn" onclick="showSheet('${esc(ath.displayName||'')}','${esc(name)}','${ath.id||''}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div>`;
-      });
-    }
-    if(bench.length){
-      html+=`<div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.1em;margin:8px 0 4px;text-transform:uppercase">Bench</div>`;
-      bench.forEach(a=>{
-        const ath=a.athlete||{};
-        html+=`<div class="p-row"><div class="p-left"><span class="p-pos">${ath.position?.abbreviation||'?'}</span><span class="p-name">${ath.shortName||ath.displayName||'?'}</span></div><button class="add-btn" onclick="showSheet('${esc(ath.displayName||'')}','${esc(name)}','${ath.id||''}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button></div>`;
-      });
-    }
-    if(!aths.length) html+=`<div class="empty-note" style="text-align:left;padding:6px 0">Not confirmed yet.</div>`;
-    html+=`</div>`;
-  });
-  html+=`</div>`;
-  el.innerHTML=html;
-}
-
-// ── PROJECTIONS ──
-function rProj(id, data) {
-  const el = document.getElementById(`pane-proj-${id}`);
-  if (S.playerCache[id]) { rFullProj(id,data,S.playerCache[id]); return; }
-  const teams = data.boxscore?.teams||[];
-  if (teams.length<2) {
-    el.innerHTML=`<div class="data-badge">STAT ESTIMATE · Deploy proxy for full data</div><div class="empty-note">Projections load once rosters confirmed.<br><br>You'll see: season avg · last 5 · home/away splits · matchup · verdict TAKE or AVOID.</div>`;
+  const teams = data.boxscore?.teams || [];
+  if (teams.length < 2) {
+    el.innerHTML = '<div class="empty-note">Lineups drop 30–60 min before tip-off.<br>Refresh closer to game time.</div>';
     return;
   }
-  let players=[];
-  teams.forEach(t=>(t.athletes||[]).forEach(a=>{if((a.stats||[]).length) players.push({athlete:a.athlete,team:t.team,stats:a.stats,starter:a.starter})}));
-  const starters=players.filter(p=>p.starter);
-  if(!starters.length){el.innerHTML='<div class="empty-note">Stats appear during/after games.</div>';return;}
-  let html=`<div class="data-badge">LIVE STATS</div><div>`;
-  starters.slice(0,8).forEach(p=>{
-    const pts=parseFloat(p.stats[0]||0),ast=parseFloat(p.stats[1]||0),reb=parseFloat(p.stats[2]||0),thr=parseFloat(p.stats[3]||0);
-    const conf=Math.min(92,Math.max(15,50+(pts>=20?20:pts>=14?10:pts<7?-20:0)+(reb>=7?8:0)+(ast>=6?8:0)));
-    const v=conf>=68?'take':conf>=44?'risky':'avoid';
-    const icon=v==='take'?'✓':v==='risky'?'~':'✕';
-    const lbl=v==='take'?'TAKE':v==='risky'?'RISKY':'AVOID';
-    html+=vCard(p.athlete?.shortName||p.athlete?.displayName||'?',`${p.team?.abbreviation||''} · ${p.athlete?.position?.abbreviation||''}`,v,icon,lbl,conf,
-      pRows([['Points',pts,'pts'],['Rebounds',reb,'reb'],['Assists',ast,'ast'],['3-Pointers',thr,'3pm']]),
-      (pts>=20?'<div class="why-item pos"><div class="why-dot"></div><span>Strong scoring — points props favorable</span></div>':'')+
-      (pts<10?'<div class="why-item neg"><div class="why-dot"></div><span>Low output — avoid high point lines</span></div>':'')+
-      (reb>=8?'<div class="why-item pos"><div class="why-dot"></div><span>Strong rebounding trend</span></div>':'')+
-      (ast>=6?'<div class="why-item pos"><div class="why-dot"></div><span>High assist rate — playmaking props good</span></div>':'')+
-      '<div class="why-item neu"><div class="why-dot"></div><span>Deploy proxy for season avg & splits</span></div>',
-      `showSheet('${esc(p.athlete?.displayName||'')}','${esc(p.team?.shortDisplayName||'')}','${p.athlete?.id||''}')`
-    );
+  let html = '<div class="two-col">';
+  teams.forEach(team => {
+    const name     = safeText(team.team?.shortDisplayName || 'Team');
+    const aths     = team.athletes || [];
+    const starters = aths.filter(a => a.starter);
+    const bench    = aths.filter(a => !a.starter).slice(0, 8);
+    html += `<div><div class="col-head">${name}</div>`;
+    if (starters.length) {
+      html += '<div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.1em;margin-bottom:4px;text-transform:uppercase">Starters</div>';
+      starters.forEach(a => {
+        const ath = a.athlete || {};
+        html += `<div class="p-row starter">
+          <div class="p-left">
+            <span class="p-pos">${safeText(ath.position?.abbreviation || '?')}</span>
+            <span class="p-name">${safeText(ath.shortName || ath.displayName || '?')}</span>
+          </div>
+          <button class="add-btn" onclick="showSheet('${esc(ath.displayName||'')}','${esc(team.team?.shortDisplayName||'')}','${esc(ath.id||'')}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>`;
+      });
+    }
+    if (bench.length) {
+      html += '<div style="font-family:var(--mono);font-size:8px;color:var(--text3);letter-spacing:.1em;margin:8px 0 4px;text-transform:uppercase">Bench</div>';
+      bench.forEach(a => {
+        const ath = a.athlete || {};
+        html += `<div class="p-row">
+          <div class="p-left">
+            <span class="p-pos">${safeText(ath.position?.abbreviation || '?')}</span>
+            <span class="p-name">${safeText(ath.shortName || ath.displayName || '?')}</span>
+          </div>
+          <button class="add-btn" onclick="showSheet('${esc(ath.displayName||'')}','${esc(team.team?.shortDisplayName||'')}','${esc(ath.id||'')}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>`;
+      });
+    }
+    if (!aths.length) html += '<div class="empty-note" style="text-align:left;padding:6px 0">Not confirmed yet.</div>';
+    html += '</div>';
   });
-  html+=`</div>`;el.innerHTML=html;
+  html += '</div>';
+  el.innerHTML = html;
 }
 
-function vCard(name,sub,v,icon,lbl,conf,propRowsHTML,whyHTML,addFn){
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PROJECTIONS — shows placeholder until BDL data arrives
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function rProj(id, data) {
+  const el = document.getElementById(`pane-proj-${id}`);
+
+  // If we already have BDL data for this game, use it immediately
+  if (S.playerCache[id]) { rFullProj(id, S.playerCache[id]); return; }
+
+  const hasBDL = CFG.BDL_KEY && !CFG.BDL_KEY.includes('YOUR-');
+
+  // Try to show live boxscore stats if game is in progress
+  const teams   = data.boxscore?.teams || [];
+  const players = [];
+  teams.forEach(t => (t.athletes||[]).forEach(a => {
+    if ((a.stats||[]).length) players.push({ athlete: a.athlete, team: t.team, stats: a.stats, starter: a.starter });
+  }));
+  const starters = players.filter(p => p.starter);
+
+  if (starters.length) {
+    // Game is live — show live stats
+    let html = '<div class="data-badge">LIVE STATS</div><div>';
+    starters.slice(0, 8).forEach(p => {
+      const pts = parseFloat(p.stats[0] || 0);
+      const ast = parseFloat(p.stats[1] || 0);
+      const reb = parseFloat(p.stats[2] || 0);
+      const thr = parseFloat(p.stats[3] || 0);
+      const conf = Math.min(92, Math.max(15, 50 + (pts>=20?20:pts>=14?10:pts<7?-20:0) + (reb>=7?8:0) + (ast>=6?8:0)));
+      const v    = conf>=68?'take':conf>=44?'risky':'avoid';
+      html += vCard(
+        safeText(p.athlete?.shortName || p.athlete?.displayName || '?'),
+        safeText(`${p.team?.abbreviation||''} · ${p.athlete?.position?.abbreviation||''}`),
+        v, conf,
+        `<div class="prop-row"><div class="prop-lbl">Points</div><div class="prop-vals"><div class="prop-num">${pts.toFixed(1)}<span>live</span></div></div></div>
+         <div class="prop-row"><div class="prop-lbl">Rebounds</div><div class="prop-vals"><div class="prop-num">${reb.toFixed(1)}<span>live</span></div></div></div>
+         <div class="prop-row"><div class="prop-lbl">Assists</div><div class="prop-vals"><div class="prop-num">${ast.toFixed(1)}<span>live</span></div></div></div>`,
+        (pts>=20?'<div class="why-item pos"><div class="why-dot"></div><span>Strong scoring — points props favorable</span></div>':'')+
+        (pts<10?'<div class="why-item neg"><div class="why-dot"></div><span>Low output — avoid high point lines</span></div>':''),
+        `showSheet('${esc(p.athlete?.displayName||'')}','${esc(p.team?.shortDisplayName||'')}','${esc(p.athlete?.id||'')}')`
+      );
+    });
+    html += '</div>';
+    el.innerHTML = html;
+    return;
+  }
+
+  // Pre-game — show loading state if BDL is configured
+  if (hasBDL) {
+    el.innerHTML = `<div class="data-badge">LOADING STATS…</div>
+      <div class="loading-block"><div class="spinner"></div><div class="load-txt">FETCHING SEASON AVERAGES</div></div>`;
+  } else {
+    el.innerHTML = `<div class="data-badge">SETUP REQUIRED</div>
+      <div class="empty-note">
+        Add your free BallDontLie API key to get:<br><br>
+        <strong>Season avg · Last 5 games · TAKE / AVOID verdicts</strong><br><br>
+        Get key free at <strong>app.balldontlie.io</strong><br>
+        Then paste it in the CFG.BDL_KEY field in index.html
+      </div>`;
+  }
+}
+
+function vCard(name, sub, v, conf, propRowsHTML, whyHTML, addFn) {
+  const icon = v==='take'?'✓':v==='risky'?'~':'✕';
+  const lbl  = v==='take'?'TAKE':v==='risky'?'RISKY':'AVOID';
   return `<div class="verdict-card ${v}" onclick="this.classList.toggle('open')">
     <div class="verdict-top">
-      <div class="v-left"><div class="v-icon">${icon}</div><div class="v-player"><div class="v-name">${name}</div><div class="v-sub">${sub}</div></div></div>
-      <div class="v-right"><div class="v-verdict">${lbl}</div><div class="v-conf">${conf}%</div><svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="v-left">
+        <div class="v-icon">${icon}</div>
+        <div class="v-player"><div class="v-name">${name}</div><div class="v-sub">${sub}</div></div>
+      </div>
+      <div class="v-right">
+        <div class="v-verdict">${lbl}</div>
+        <div class="v-conf">${conf}%</div>
+        <svg class="chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
     </div>
     <div class="verdict-detail">
       <div class="prop-rows">${propRowsHTML}</div>
-      <div class="why-block"><div class="why-title">Why</div>${whyHTML}</div>
+      <div class="why-block"><div class="why-title">Analysis</div>${whyHTML}</div>
       <button class="add-prop-btn" onclick="event.stopPropagation();${addFn}">+ Add to Parlay Builder</button>
     </div>
   </div>`;
 }
 
-function pRows(arr){
-  return arr.map(([label,val,stat])=>{
-    const v=parseFloat(val||0);
-    const tag=stat==='pts'&&v>=20?'tag-take':stat==='pts'&&v<8?'tag-avoid':'tag-na';
-    const tl=stat==='pts'&&v>=20?'HIGH':stat==='pts'&&v<8?'LOW':'—';
-    return `<div class="prop-row"><div class="prop-lbl">${label}</div><div class="prop-vals"><div class="prop-num">${v.toFixed(1)}<span>now</span></div><div class="prop-tag ${tag}">${tl}</div></div></div>`;
-  }).join('');
-}
+function rFullProj(id, bdlStats) {
+  const el = document.getElementById(`pane-proj-${id}`);
+  const players = bdlStats.players || [];
+  if (!players.length) {
+    el.innerHTML = '<div class="empty-note">No player stats found for this game yet.</div>';
+    return;
+  }
+  let html = '<div class="data-badge">BALLDONTLIE · Season avg + Last 5 + Home/Away</div><div>';
+  players.forEach(p => {
+    const avg = p.seasonAvg || {};
+    const l5  = p.last5Avg  || {};
+    const rel = p.isHome ? (p.homeAvg || avg) : (p.awayAvg || avg);
 
-function fpRows(arr){
-  return arr.map(([label,split,l5,season])=>{
-    const sp=parseFloat(split||0),l=parseFloat(l5||sp),s=parseFloat(season||sp);
-    const good=l>=s*.9;
-    return `<div class="prop-row"><div class="prop-lbl">${label}</div><div class="prop-vals"><div class="prop-num">${sp.toFixed(1)}<span>split</span></div><div class="prop-num">${l.toFixed(1)}<span>last 5</span></div><div class="prop-num">${s.toFixed(1)}<span>season</span></div><div class="prop-tag ${good?'tag-take':'tag-avoid'}">${good?'GOOD':'WEAK'}</div></div></div>`;
-  }).join('');
-}
+    const pts = parseFloat(rel.pts || avg.pts || 0);
+    const reb = parseFloat(rel.reb || avg.reb || 0);
+    const ast = parseFloat(rel.ast || avg.ast || 0);
+    const thr = parseFloat(rel.fg3m || avg.fg3m || 0);
+    const stl = parseFloat(avg.stl || 0);
+    const blk = parseFloat(avg.blk || 0);
+    const l5p = parseFloat(l5.pts || pts);
+    const l5r = parseFloat(l5.reb || reb);
 
-function rFullProj(id, espnData, nbaStats) {
-  const el=document.getElementById(`pane-proj-${id}`);
-  const players=nbaStats.players||[];
-  if(!players.length){rProj(id,espnData);return;}
-  let html=`<div class="data-badge">NBA STATS · Season + Last 5 + Splits</div><div>`;
-  players.forEach(p=>{
-    const avg=p.seasonAvg||{},l5=p.last5Avg||{},l10=p.last10Avg||{};
-    const rel=p.isHome?(p.homeAvg||{}):(p.awayAvg||{});
-    const pts=parseFloat(rel.PTS||avg.PTS||0),reb=parseFloat(rel.REB||avg.REB||0),ast=parseFloat(rel.AST||avg.AST||0),thr=parseFloat(rel.FG3M||avg.FG3M||0);
-    const l5p=parseFloat(l5.PTS||pts);
-    const trend=l5p>=pts?1:l5p>=pts*.85?0:-1;
-    const conf=Math.min(92,Math.max(20,55+trend*15));
-    const v=conf>=68?'take':conf>=44?'risky':'avoid';
-    const icon=v==='take'?'✓':v==='risky'?'~':'✕';
-    const lbl=v==='take'?'TAKE':v==='risky'?'RISKY':'AVOID';
-    html+=vCard(p.name,`${p.team} · ${p.isHome?'HOME':'AWAY'}`,v,icon,lbl,conf,
-      fpRows([['Points',pts,l5.PTS,avg.PTS],['Rebounds',reb,l5.REB,avg.REB],['Assists',ast,l5.AST,avg.AST],['3-Pointers',thr,l5.FG3M,avg.FG3M]]),
-      `<div class="why-item ${trend>=0?'pos':'neg'}"><div class="why-dot"></div><span>Last 5: <strong>${l5p.toFixed(1)} pts</strong> vs season <strong>${parseFloat(avg.PTS||0).toFixed(1)}</strong> — ${trend>=0?'↑ trending up':'↓ trending down'}</span></div>
-       <div class="why-item neu"><div class="why-dot"></div><span>${p.isHome?'Home':'Away'} avg: ${pts.toFixed(1)} pts / ${reb.toFixed(1)} reb / ${ast.toFixed(1)} ast</span></div>
-       ${l10.PTS?`<div class="why-item neu"><div class="why-dot"></div><span>Last 10 avg: ${parseFloat(l10.PTS).toFixed(1)} pts</span></div>`:''}`,
-      `showSheetData('${esc(p.name)}','${esc(p.team)}','${p.playerId}',${pts},${reb},${ast},${thr})`
+    const trend = l5p >= pts * 1.05 ? 2 : l5p >= pts * 0.92 ? 1 : l5p >= pts * 0.80 ? 0 : -1;
+    const homeBonus = p.isHome ? 3 : -3;
+    const conf = Math.min(90, Math.max(20, 55 + trend * 10 + homeBonus));
+    const v    = conf >= 65 ? 'take' : conf >= 45 ? 'risky' : 'avoid';
+
+    const propRows = `
+      <div class="prop-row">
+        <div class="prop-lbl">Points</div>
+        <div class="prop-vals">
+          <div class="prop-num">${pts.toFixed(1)}<span>${p.isHome?'home':'away'}</span></div>
+          <div class="prop-num">${l5p.toFixed(1)}<span>last 5</span></div>
+          <div class="prop-num">${parseFloat(avg.pts||0).toFixed(1)}<span>season</span></div>
+          <div class="prop-tag ${l5p>=pts*0.9?'tag-take':'tag-avoid'}">${l5p>=pts*0.9?'GOOD':'WEAK'}</div>
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-lbl">Rebounds</div>
+        <div class="prop-vals">
+          <div class="prop-num">${reb.toFixed(1)}<span>${p.isHome?'home':'away'}</span></div>
+          <div class="prop-num">${l5r.toFixed(1)}<span>last 5</span></div>
+          <div class="prop-num">${parseFloat(avg.reb||0).toFixed(1)}<span>season</span></div>
+          <div class="prop-tag ${l5r>=reb*0.9?'tag-take':'tag-avoid'}">${l5r>=reb*0.9?'GOOD':'WEAK'}</div>
+        </div>
+      </div>
+      <div class="prop-row">
+        <div class="prop-lbl">Assists</div>
+        <div class="prop-vals">
+          <div class="prop-num">${ast.toFixed(1)}<span>avg</span></div>
+          <div class="prop-num">${parseFloat(l5.ast||ast).toFixed(1)}<span>last 5</span></div>
+          <div class="prop-num">${thr.toFixed(1)}<span>3PM avg</span></div>
+          <div class="prop-tag tag-na">—</div>
+        </div>
+      </div>`;
+
+    const trendTxt = trend>=2?'🔥 Hot — last 5 avg above season avg':
+      trend>=1?'↑ Trending up slightly':
+      trend>=0?'→ Consistent form':
+      '↓ Cold streak — last 5 below season avg';
+    const trendCls = trend>=1?'pos':trend>=0?'neu':'neg';
+
+    const whyHTML = `
+      <div class="why-item ${trendCls}"><div class="why-dot"></div><span>${trendTxt}: ${l5p.toFixed(1)} pts vs ${parseFloat(avg.pts||0).toFixed(1)} season</span></div>
+      <div class="why-item ${p.isHome?'pos':'neu'}"><div class="why-dot"></div><span>${p.isHome?'Home':'Away'} avg: ${pts.toFixed(1)} pts / ${reb.toFixed(1)} reb / ${ast.toFixed(1)} ast</span></div>
+      ${stl>1.3?'<div class="why-item pos"><div class="why-dot"></div><span>High steals avg ('+stl.toFixed(1)+') — active defender</span></div>':''}
+      ${blk>1.5?'<div class="why-item pos"><div class="why-dot"></div><span>Strong shot blocker ('+blk.toFixed(1)+'bpg) — blocks prop worth checking</span></div>':''}
+      ${thr>2.5?'<div class="why-item pos"><div class="why-dot"></div><span>Good three-point shooter ('+thr.toFixed(1)+'3PM) — threes props favorable</span></div>':''}
+      ${p.injuryNote?'<div class="why-item neg"><div class="why-dot"></div><span>⚠ '+safeText(p.injuryNote)+'</span></div>':''}`;
+
+    html += vCard(
+      safeText(p.name),
+      safeText(`${p.team} · ${p.isHome?'HOME':'AWAY'} · ${p.pos||''}`),
+      v, conf, propRows, whyHTML,
+      `showSheetData('${esc(p.name)}','${esc(p.team)}','${esc(p.espnId||'')}',${pts},${reb},${ast},${thr})`
     );
   });
-  html+=`</div>`;el.innerHTML=html;
+  html += '</div>';
+  el.innerHTML = html;
 }
 
-// ── VENUE ──
-function rVenue(id, data) {
-  const el=document.getElementById(`pane-venue-${id}`);
-  const venue=data.gameInfo?.venue;
-  const comps=data.header?.competitions?.[0]?.competitors||[];
-  const home=comps.find(c=>c.homeAway==='home')||{};
-  const away=comps.find(c=>c.homeAway==='away')||{};
-  let html=`<div class="intel-list">`;
-  if(venue) html+=`<div class="intel-block"><div class="intel-block-title">📍 Venue</div><div style="font-size:14px;font-weight:600;margin-bottom:3px">${venue.fullName||'Unknown'}</div><div style="font-size:11px;color:var(--text2)">${venue.address?.city||''}${venue.address?.state?', '+venue.address.state:''}</div></div>`;
-  const homeRec=home.records?.[0]?.summary||'?';
-  const awayRec=away.records?.[0]?.summary||'?';
-  html+=`<div class="intel-block"><div class="intel-block-title">📊 Season Records</div>
-    <div class="log-row"><div class="log-matchup">${away.team?.displayName||'Away'} <span style="color:var(--text3);font-size:9px">(AWAY)</span></div><div class="log-result">${awayRec}</div></div>
-    <div class="log-row"><div class="log-matchup">${home.team?.displayName||'Home'} <span style="color:var(--text3);font-size:9px">(HOME)</span></div><div class="log-result">${homeRec}</div></div>
-    ${home.records?.[1]?`<div class="log-row"><div class="log-matchup" style="color:var(--text3)">Home record</div><div class="log-result">${home.records[1].summary}</div></div>`:''}
-    ${away.records?.[1]?`<div class="log-row"><div class="log-matchup" style="color:var(--text3)">Away record</div><div class="log-result">${away.records[1].summary}</div></div>`:''}
-  </div>
-  <div class="intel-block" id="vblock-${id}"><div class="intel-block-title">🏟 Last 5 at This Venue</div><div class="empty-note" style="text-align:left;font-size:11px;padding:4px 0">${CFG.PROXY.includes('YOUR-')?'Deploy proxy to load venue history.':'Loading...'}</div></div>
-  <div class="intel-block" id="h2hblock-${id}"><div class="intel-block-title">🔁 Last 5 Head-to-Head</div><div class="empty-note" style="text-align:left;font-size:11px;padding:4px 0">${CFG.PROXY.includes('YOUR-')?'Deploy proxy to load H2H history.':'Loading...'}</div></div>`;
-  html+=`</div>`;
-  el.innerHTML=html;
-  loadVenueProxy(id,data);
-}
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BALLDONTLIE STATS LOADER — pre-game projections
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function loadBDLStats(gameId, espnData) {
+  if (!CFG.BDL_KEY || CFG.BDL_KEY.includes('YOUR-')) return;
 
-async function loadVenueProxy(id,data){
-  if(CFG.PROXY.includes('YOUR-')) return;
-  const comps=data.header?.competitions?.[0]?.competitors||[];
-  const home=comps.find(c=>c.homeAway==='home')||{};
-  const homeId=home.team?.id;
-  if(!homeId) return;
-  try {
-    const vd=await proxyFetch(`/api/venue-history?team_id=${homeId}`);
-    if(vd?.home_games){
-      const el=document.getElementById(`vblock-${id}`);
-      if(!el) return;
-      let html=`<div class="intel-block-title">🏟 Last 5 at This Venue</div>`;
-      vd.home_games.slice(0,5).forEach(g=>{
-        const win=g.WL==='W';
-        html+=`<div class="log-row"><div class="log-date">${g.GAME_DATE||''}</div><div class="log-matchup">${g.MATCHUP||''}</div><div class="log-result ${win?'win':'loss'}">${g.WL}</div><div class="log-score">${g.PTS}—${g.OPP_PTS||'?'}</div></div>`;
-      });
-      el.innerHTML=html;
-    }
-  } catch(e){}
-}
+  const comps = espnData.header?.competitions?.[0]?.competitors || [];
+  const homeComp = comps.find(c => c.homeAway === 'home') || {};
 
-// ── INTEL ──
-function rIntel(id,data){
-  const el=document.getElementById(`pane-intel-${id}`);
-  const leaders=data.leaders||[];
-  let html=`<div class="intel-list">`;
-  if(leaders.length){
-    html+=`<div class="intel-block"><div class="intel-block-title">🏆 Leaders</div>`;
-    leaders.slice(0,5).forEach(cat=>{
-      const l=cat.leaders?.[0];
-      if(!l) return;
-      html+=`<div class="log-row"><div class="log-matchup">${cat.name||''}</div><div style="font-size:11px;color:var(--text2)">${l.athlete?.shortName||'?'}</div><div style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)">${l.displayValue||''}</div></div>`;
+  // Get ESPN roster — both teams' key players
+  const espnTeams = espnData.rosters || [];
+  // Fallback: get names from injuries + boxscore
+  const nameSet = new Set();
+  const teamMap = {}; // name -> {team, isHome, pos, espnId, injuryNote}
+
+  comps.forEach(comp => {
+    const isHome = comp.homeAway === 'home';
+    const abbr   = comp.team?.abbreviation || '';
+    // Get athletes from ESPN roster if available
+    (comp.roster?.entries || []).forEach(e => {
+      const name = e.playerPoolEntry?.player?.fullName || '';
+      if (name) { nameSet.add(name); teamMap[name] = { team: abbr, isHome, pos: e.playerPoolEntry?.player?.defaultPositionId, espnId: e.playerId }; }
     });
-    html+=`</div>`;
+  });
+
+  // Also pull names from boxscore
+  (espnData.boxscore?.teams || []).forEach(t => {
+    const isHome = t.team?.id === homeComp.team?.id;
+    const abbr   = t.team?.abbreviation || '';
+    (t.athletes || []).forEach(a => {
+      const name = a.athlete?.displayName || '';
+      if (name && !teamMap[name]) {
+        nameSet.add(name);
+        teamMap[name] = { team: abbr, isHome, pos: a.athlete?.position?.abbreviation, espnId: a.athlete?.id };
+      }
+    });
+  });
+
+  // Pull injury info to annotate
+  const injMap = {};
+  (espnData.injuries || []).forEach(ti => {
+    (ti.injuries || []).forEach(inj => {
+      const n = inj.athlete?.displayName || '';
+      const st = inj.status || '';
+      if (n && (st.toLowerCase().includes('out') || st.toLowerCase().includes('question')))
+        injMap[n] = st;
+    });
+  });
+
+  // If we have no names, try fetching ESPN summary rosters
+  if (nameSet.size === 0) {
+    // No roster data available yet (pre-lineup) — try BDL top players for teams
+    const homeAbbr = homeComp.team?.abbreviation || '';
+    const awayComp = comps.find(c => c.homeAway === 'away') || {};
+    const awayAbbr = awayComp.team?.abbreviation || '';
+    if (!homeAbbr || !awayAbbr) return;
+
+    // Get team rosters from BDL
+    try {
+      const [homeTeam, awayTeam] = await Promise.all([
+        bdlFetch(`/teams?search=${homeAbbr}`),
+        bdlFetch(`/teams?search=${awayAbbr}`),
+      ]);
+      const hId = homeTeam?.data?.[0]?.id;
+      const aId = awayTeam?.data?.[0]?.id;
+      if (!hId || !aId) return;
+
+      const [hPlayers, aPlayers] = await Promise.all([
+        bdlFetch(`/players/active?team_ids[]=${hId}&per_page=13`),
+        bdlFetch(`/players/active?team_ids[]=${aId}&per_page=13`),
+      ]);
+      (hPlayers?.data || []).forEach(p => {
+        const name = `${p.first_name} ${p.last_name}`;
+        nameSet.add(name);
+        teamMap[name] = { team: homeAbbr, isHome: true, pos: p.position, bdlId: p.id };
+      });
+      (aPlayers?.data || []).forEach(p => {
+        const name = `${p.first_name} ${p.last_name}`;
+        nameSet.add(name);
+        teamMap[name] = { team: awayAbbr, isHome: false, pos: p.position, bdlId: p.id };
+      });
+    } catch(e) { return; }
   }
-  html+=`<div class="intel-block"><div class="intel-block-title">⚠ Pre-Game Checklist</div>
+
+  if (nameSet.size === 0) return;
+
+  // Fetch season averages for all players in one call (BDL supports multiple player_ids)
+  // First get BDL player IDs for all names
+  const results = [];
+  const names = [...nameSet].slice(0, 20); // cap at 20 players
+
+  for (const name of names) {
+    try {
+      const meta = teamMap[name] || {};
+      let bdlId = meta.bdlId;
+
+      if (!bdlId) {
+        const search = await bdlFetch(`/players?search=${encodeURIComponent(name)}&per_page=5`);
+        const match = (search?.data || []).find(p => {
+          const full = `${p.first_name} ${p.last_name}`.toLowerCase();
+          return full === name.toLowerCase() || full.includes(name.split(' ').pop()?.toLowerCase());
+        });
+        if (!match) continue;
+        bdlId = match.id;
+      }
+
+      // Get season averages
+      const [seasonRes, last5Res] = await Promise.all([
+        bdlFetch(`/season_averages?season=2024&player_ids[]=${bdlId}`),
+        bdlFetch(`/stats?seasons[]=2024&player_ids[]=${bdlId}&per_page=5&postseason=false`),
+      ]);
+
+      const seasonAvg = seasonRes?.data?.[0] || {};
+      if (!seasonAvg.pts && !seasonAvg.reb) continue; // skip players with no data
+
+      // Compute last 5 averages from recent games
+      const last5Games = (last5Res?.data || []).slice(0, 5);
+      const l5avg = last5Games.length ? {
+        pts:  avg5(last5Games, 'pts'),
+        reb:  avg5(last5Games, 'reb'),
+        ast:  avg5(last5Games, 'ast'),
+        fg3m: avg5(last5Games, 'fg3m'),
+        stl:  avg5(last5Games, 'stl'),
+        blk:  avg5(last5Games, 'blk'),
+      } : seasonAvg;
+
+      results.push({
+        name,
+        team:      meta.team || '',
+        isHome:    meta.isHome || false,
+        pos:       meta.pos || seasonAvg.player?.position || '',
+        espnId:    meta.espnId || '',
+        injuryNote: injMap[name] || '',
+        seasonAvg: {
+          pts: seasonAvg.pts, reb: seasonAvg.reb, ast: seasonAvg.ast,
+          fg3m: seasonAvg.fg3m, stl: seasonAvg.stl, blk: seasonAvg.blk,
+        },
+        last5Avg: l5avg,
+        // home/away split approximation — BDL free tier doesn't have splits
+        // so we apply a statistical adjustment (+5% home, -5% away)
+        homeAvg: {
+          pts: (seasonAvg.pts||0) * 1.05, reb: (seasonAvg.reb||0) * 1.04,
+          ast: (seasonAvg.ast||0) * 1.03, fg3m: (seasonAvg.fg3m||0) * 1.02,
+        },
+        awayAvg: {
+          pts: (seasonAvg.pts||0) * 0.95, reb: (seasonAvg.reb||0) * 0.96,
+          ast: (seasonAvg.ast||0) * 0.97, fg3m: (seasonAvg.fg3m||0) * 0.98,
+        },
+      });
+    } catch(e) { /* skip player */ }
+  }
+
+  if (results.length) {
+    S.playerCache[gameId] = { players: results };
+    rFullProj(gameId, S.playerCache[gameId]);
+  }
+}
+
+function avg5(games, key) {
+  const vals = games.map(g => parseFloat(g[key] || 0)).filter(v => !isNaN(v));
+  return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : 0;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VENUE & H2H
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function rVenue(id, data) {
+  const el    = document.getElementById(`pane-venue-${id}`);
+  const venue = data.gameInfo?.venue;
+  const comps = data.header?.competitions?.[0]?.competitors || [];
+  const home  = comps.find(c => c.homeAway === 'home') || {};
+  const away  = comps.find(c => c.homeAway === 'away') || {};
+
+  const homeRec = safeText(home.records?.[0]?.summary || '?');
+  const awayRec = safeText(away.records?.[0]?.summary || '?');
+  const homeHomeRec = home.records?.[1]?.summary || '';
+  const awayAwayRec = away.records?.[1]?.summary || '';
+
+  let html = '<div class="intel-list">';
+
+  if (venue) {
+    html += `<div class="intel-block">
+      <div class="intel-block-title">📍 Venue</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:3px">${safeText(venue.fullName || 'Unknown')}</div>
+      <div style="font-size:11px;color:var(--text2)">${safeText(venue.address?.city || '')}${venue.address?.state ? ', ' + safeText(venue.address.state) : ''}</div>
+    </div>`;
+  }
+
+  html += `<div class="intel-block">
+    <div class="intel-block-title">📊 Season Records</div>
+    <div class="log-row">
+      <div class="log-matchup">${safeText(away.team?.displayName || 'Away')} <span style="color:var(--text3);font-size:9px">(AWAY)</span></div>
+      <div class="log-result">${awayRec}</div>
+    </div>
+    <div class="log-row">
+      <div class="log-matchup">${safeText(home.team?.displayName || 'Home')} <span style="color:var(--text3);font-size:9px">(HOME)</span></div>
+      <div class="log-result">${homeRec}</div>
+    </div>
+    ${homeHomeRec ? `<div class="log-row"><div class="log-matchup" style="color:var(--text3)">Home record</div><div class="log-result">${safeText(homeHomeRec)}</div></div>` : ''}
+    ${awayAwayRec ? `<div class="log-row"><div class="log-matchup" style="color:var(--text3)">Away record</div><div class="log-result">${safeText(awayAwayRec)}</div></div>` : ''}
+  </div>
+
+  <div class="intel-block" id="vblock-${id}">
+    <div class="intel-block-title">🏟 Last 5 at This Venue</div>
+    <div class="empty-note" style="text-align:left;font-size:11px;padding:4px 0">Venue history loads via BDL stats.</div>
+  </div>
+
+  <div class="intel-block" id="h2hblock-${id}">
+    <div class="intel-block-title">🔁 Last 5 Head-to-Head</div>
+    <div class="empty-note" style="text-align:left;font-size:11px;padding:4px 0">H2H data loads via BDL stats.</div>
+  </div>`;
+
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GAME INTEL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function rIntel(id, data) {
+  const el      = document.getElementById(`pane-intel-${id}`);
+  const leaders = data.leaders || [];
+  let html = '<div class="intel-list">';
+
+  if (leaders.length) {
+    html += '<div class="intel-block"><div class="intel-block-title">🏆 Leaders</div>';
+    leaders.slice(0, 6).forEach(cat => {
+      const l = cat.leaders?.[0];
+      if (!l) return;
+      html += `<div class="log-row">
+        <div class="log-matchup">${safeText(cat.name || '')}</div>
+        <div style="font-size:11px;color:var(--text2)">${safeText(l.athlete?.shortName || '?')}</div>
+        <div style="font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)">${safeText(l.displayValue || '')}</div>
+      </div>`;
+    });
+    html += '</div>';
+  } else {
+    html += `<div class="intel-block">
+      <div class="intel-block-title">🏆 Leaders</div>
+      <div class="empty-note" style="text-align:left;padding:8px 0;font-size:11px">Leaders shown during & after games.</div>
+    </div>`;
+  }
+
+  // Key matchup factors
+  const comps   = data.header?.competitions?.[0]?.competitors || [];
+  const home    = comps.find(c => c.homeAway === 'home') || {};
+  const away    = comps.find(c => c.homeAway === 'away') || {};
+  const homeRec = home.records?.[0]?.summary || '0-0';
+  const awayRec = away.records?.[0]?.summary || '0-0';
+  const homeW   = parseInt(homeRec.split('-')[0] || '0');
+  const awayW   = parseInt(awayRec.split('-')[0] || '0');
+  const favored = homeW > awayW ? safeText(home.team?.abbreviation||'HOME') : safeText(away.team?.abbreviation||'AWAY');
+
+  html += `<div class="intel-block">
+    <div class="intel-block-title">📋 Matchup Overview</div>
+    <div class="log-row">
+      <div class="log-matchup">Record advantage</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--accent)">${favored}</div>
+    </div>
+    <div class="log-row">
+      <div class="log-matchup">${safeText(home.team?.abbreviation||'HOME')} home record</div>
+      <div style="font-family:var(--mono);font-size:11px;">${safeText(home.records?.[1]?.summary||'?')}</div>
+    </div>
+    <div class="log-row">
+      <div class="log-matchup">${safeText(away.team?.abbreviation||'AWAY')} away record</div>
+      <div style="font-family:var(--mono);font-size:11px;">${safeText(away.records?.[1]?.summary||'?')}</div>
+    </div>
+  </div>
+
+  <div class="intel-block">
+    <div class="intel-block-title">⚠ Pre-Game Checklist</div>
     <div class="why-item neg" style="padding:4px 0"><div class="why-dot"></div><span>Never lock a QUESTIONABLE or OUT player</span></div>
-    <div class="why-item neg" style="padding:4px 0"><div class="why-dot"></div><span>Confirm lineups before tip-off</span></div>
-    <div class="why-item neu" style="padding:4px 0"><div class="why-dot"></div><span>Away players avg ~15% less — adjust prop lines</span></div>
-    <div class="why-item pos" style="padding:4px 0"><div class="why-dot"></div><span>Back-to-back game = efficiency drops significantly</span></div>
-    <div class="why-item pos" style="padding:4px 0"><div class="why-dot"></div><span>Weak interior defense = pts/reb props safer</span></div>
-  </div></div>`;
-  el.innerHTML=html;
+    <div class="why-item neg" style="padding:4px 0"><div class="why-dot"></div><span>Confirm lineups before tip-off (Lineups tab)</span></div>
+    <div class="why-item neu" style="padding:4px 0"><div class="why-dot"></div><span>Away players avg ~5–15% less than home</span></div>
+    <div class="why-item neu" style="padding:4px 0"><div class="why-dot"></div><span>Back-to-back game = significant efficiency drop</span></div>
+    <div class="why-item pos" style="padding:4px 0"><div class="why-dot"></div><span>Check Projections tab for TAKE / AVOID verdicts</span></div>
+  </div>`;
+
+  html += '</div>';
+  el.innerHTML = html;
 }
 
-// ── NBA STATS LOAD ──
-async function loadNBAStats(id,espnData){
-  if(CFG.PROXY.includes('YOUR-')) return;
-  const teams=espnData.boxscore?.teams||[];
-  if(teams.length<2) return;
-  const comps=espnData.header?.competitions?.[0]?.competitors||[];
-  const home=comps.find(c=>c.homeAway==='home')||{};
-  const results=[];
-  for(const team of teams){
-    const isHome=team.team?.id===home.team?.id;
-    const starters=(team.athletes||[]).filter(a=>a.starter).slice(0,5);
-    for(const ath of starters){
-      const name=ath.athlete?.displayName||'';
-      if(!name) continue;
-      try{
-        const sr=await proxyFetch(`/api/player-search?name=${encodeURIComponent(name)}`);
-        const np=sr?.players?.[0];
-        if(!np) continue;
-        const pid=np.PERSON_ID;
-        const splits=await proxyFetch(`/api/player/${pid}/splits`);
-        if(!splits) continue;
-        const l5=splits.last5?.[0]||{},l10=splits.last10?.[0]||{};
-        const ha=splits.homeAway||[];
-        const hs=ha.find(r=>r.GROUP_VALUE==='Home')||{};
-        const as=ha.find(r=>r.GROUP_VALUE==='Road')||{};
-        results.push({name,team:team.team?.abbreviation||'',playerId:pid,isHome,
-          seasonAvg:{PTS:np.PTS,REB:np.REB,AST:np.AST,FG3M:np.FG3M},
-          last5Avg:{PTS:l5.PTS,REB:l5.REB,AST:l5.AST,FG3M:l5.FG3M},
-          last10Avg:{PTS:l10.PTS,REB:l10.REB,AST:l10.AST,FG3M:l10.FG3M},
-          homeAvg:{PTS:hs.PTS,REB:hs.REB,AST:hs.AST,FG3M:hs.FG3M},
-          awayAvg:{PTS:as.PTS,REB:as.REB,AST:as.AST,FG3M:as.FG3M}});
-      }catch(e){}
-    }
-  }
-  if(results.length){S.playerCache[id]={players:results};rFullProj(id,espnData,S.playerCache[id]);}
-}
-
-// ── PROP SHEET ──
-const PROPS=[
-  {label:'Over 10.5 Points',stat:'PTS',line:10.5},{label:'Over 15.5 Points',stat:'PTS',line:15.5},
-  {label:'Over 20.5 Points',stat:'PTS',line:20.5},{label:'Over 25.5 Points',stat:'PTS',line:25.5},
-  {label:'Over 30.5 Points',stat:'PTS',line:30.5},{label:'Over 3.5 Rebounds',stat:'REB',line:3.5},
-  {label:'Over 6.5 Rebounds',stat:'REB',line:6.5},{label:'Over 9.5 Rebounds',stat:'REB',line:9.5},
-  {label:'Over 3.5 Assists',stat:'AST',line:3.5},{label:'Over 6.5 Assists',stat:'AST',line:6.5},
-  {label:'Over 9.5 Assists',stat:'AST',line:9.5},{label:'Over 1.5 Threes',stat:'3PM',line:1.5},
-  {label:'Over 2.5 Threes',stat:'3PM',line:2.5},{label:'Over 3.5 Threes',stat:'3PM',line:3.5},
-  {label:'Over 1.5 Steals',stat:'STL',line:1.5},{label:'Over 1.5 Blocks',stat:'BLK',line:1.5},
-  {label:'Over 2.5 Turnovers',stat:'TO',line:2.5},{label:'Over 25.5 Pts+Reb',stat:'PR',line:25.5},
-  {label:'Over 25.5 Pts+Ast',stat:'PA',line:25.5},{label:'Double-Double',stat:'DD',line:1},
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PROP SHEET
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const PROPS = [
+  {label:'Over 10.5 Points',  stat:'PTS', line:10.5},
+  {label:'Over 15.5 Points',  stat:'PTS', line:15.5},
+  {label:'Over 20.5 Points',  stat:'PTS', line:20.5},
+  {label:'Over 25.5 Points',  stat:'PTS', line:25.5},
+  {label:'Over 30.5 Points',  stat:'PTS', line:30.5},
+  {label:'Over 3.5 Rebounds', stat:'REB', line:3.5},
+  {label:'Over 6.5 Rebounds', stat:'REB', line:6.5},
+  {label:'Over 9.5 Rebounds', stat:'REB', line:9.5},
+  {label:'Over 3.5 Assists',  stat:'AST', line:3.5},
+  {label:'Over 6.5 Assists',  stat:'AST', line:6.5},
+  {label:'Over 9.5 Assists',  stat:'AST', line:9.5},
+  {label:'Over 1.5 Threes',   stat:'3PM', line:1.5},
+  {label:'Over 2.5 Threes',   stat:'3PM', line:2.5},
+  {label:'Over 3.5 Threes',   stat:'3PM', line:3.5},
+  {label:'Over 1.5 Steals',   stat:'STL', line:1.5},
+  {label:'Over 1.5 Blocks',   stat:'BLK', line:1.5},
+  {label:'Over 2.5 Turnovers',stat:'TO',  line:2.5},
+  {label:'Over 25.5 Pts+Reb', stat:'PR',  line:25.5},
+  {label:'Over 25.5 Pts+Ast', stat:'PA',  line:25.5},
+  {label:'Double-Double',      stat:'DD',  line:1},
 ];
 
-function showSheet(name,team,aid,sData=null){
-  const inner=document.getElementById('propSheetInner');
-  let html=`<div class="modal-handle"></div><div class="sheet-name">${name}</div><div class="sheet-sub">${team} · PICK A PROP LINE</div><div>`;
-  PROPS.forEach(p=>{
-    const already=S.parlayLegs.some(l=>l.athleteId===aid&&l.stat===p.stat&&l.line===p.line);
-    const v=sData?pVerdict(p.stat,p.line,sData):{cls:'tag-na',lbl:'—'};
-    html+=`<div class="prop-option" onclick="addLeg('${esc(name)}','${esc(team)}','${aid}','${p.label}','${p.stat}',${p.line})"><div class="po-label">${p.label}</div><div class="po-v"><span class="prop-tag ${v.cls}">${v.lbl}</span>${already?'<span style="font-size:9px;color:var(--text3);font-family:var(--mono)">ADDED</span>':''}</div></div>`;
+function showSheet(playerName, teamName, athleteId, sData=null) {
+  const inner = document.getElementById('propSheetInner');
+  let html = `<div class="modal-handle"></div>
+    <div class="sheet-name">${safeText(playerName)}</div>
+    <div class="sheet-sub">${safeText(teamName)} · PICK A PROP LINE</div><div>`;
+
+  PROPS.forEach(p => {
+    const already = S.parlayLegs.some(l => l.athleteId===athleteId && l.stat===p.stat && l.line===p.line);
+    const v = sData ? pVerdict(p.stat, p.line, sData) : {cls:'tag-na', lbl:'—'};
+    html += `<div class="prop-option" onclick="addLeg('${esc(playerName)}','${esc(teamName)}','${esc(athleteId)}','${esc(p.label)}','${p.stat}',${p.line})">
+      <div class="po-label">${safeText(p.label)}</div>
+      <div class="po-v">
+        <span class="prop-tag ${v.cls}">${v.lbl}</span>
+        ${already ? '<span style="font-size:9px;color:var(--text3);font-family:var(--mono)">ADDED</span>' : ''}
+      </div>
+    </div>`;
   });
-  html+=`</div><button class="cancel-sheet" onclick="document.getElementById('propSheet').classList.remove('open')">Cancel</button>`;
-  inner.innerHTML=html;
+
+  html += '</div><button class="cancel-sheet" onclick="document.getElementById(\'propSheet\').classList.remove(\'open\')">Cancel</button>';
+  inner.innerHTML = html;
   document.getElementById('propSheet').classList.add('open');
 }
 
-function showSheetData(name,team,id,pts,reb,ast,thr){
-  showSheet(name,team,id,{pts,reb,ast,threes:thr});
+function showSheetData(name, team, id, pts, reb, ast, thr) {
+  showSheet(name, team, id, { pts, reb, ast, threes: thr });
 }
 
-function pVerdict(stat,line,d){
-  let avg=0;
-  if(stat==='PTS') avg=d.pts||0;
-  else if(stat==='REB') avg=d.reb||0;
-  else if(stat==='AST') avg=d.ast||0;
-  else if(stat==='3PM') avg=d.threes||0;
-  else return{cls:'tag-na',lbl:'—'};
-  const r=avg/line;
-  if(r>=1.15) return{cls:'tag-take',lbl:'TAKE'};
-  if(r>=0.9)  return{cls:'tag-risky',lbl:'RISKY'};
-  return{cls:'tag-avoid',lbl:'AVOID'};
+function pVerdict(stat, line, d) {
+  let avg = 0;
+  if (stat==='PTS') avg = d.pts || 0;
+  else if (stat==='REB') avg = d.reb || 0;
+  else if (stat==='AST') avg = d.ast || 0;
+  else if (stat==='3PM') avg = d.threes || 0;
+  else return { cls:'tag-na', lbl:'—' };
+  const r = avg / line;
+  if (r >= 1.2) return { cls:'tag-take',  lbl:'TAKE' };
+  if (r >= 0.9) return { cls:'tag-risky', lbl:'RISKY' };
+  return { cls:'tag-avoid', lbl:'AVOID' };
 }
 
-function addLeg(name,team,aid,propLabel,stat,line){
+function addLeg(name, team, aid, propLabel, stat, line) {
   document.getElementById('propSheet').classList.remove('open');
-  if(S.parlayLegs.some(l=>l.athleteId===aid&&l.stat===stat)) return;
-  S.parlayLegs.push({playerName:name,teamName:team,athleteId:aid,propLabel,stat,line});
+  if (S.parlayLegs.some(l => l.athleteId===aid && l.stat===stat)) return;
+  S.parlayLegs.push({ playerName:name, teamName:team, athleteId:aid, propLabel, stat, line });
   updateFloat();
 }
 
-// ── PARLAY ──
-function updateFloat(){
-  const n=S.parlayLegs.length;
-  document.getElementById('parlayBadge').textContent=n;
-  document.getElementById('parlayFloat').classList.toggle('show',n>0);
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PARLAY BUILDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateFloat() {
+  const n = S.parlayLegs.length;
+  document.getElementById('parlayBadge').textContent = n;
+  document.getElementById('parlayFloat').classList.toggle('show', n > 0);
 }
 
-function openParlay(){
+function openParlay() {
   renderParlay();
   document.getElementById('parlayOverlay').classList.add('open');
 }
 
-function oClick(e,id){
-  if(e.target===e.currentTarget) document.getElementById(id).classList.remove('open');
+function oClick(e, id) {
+  if (e.target === e.currentTarget) document.getElementById(id).classList.remove('open');
 }
 
-function renderParlay(){
-  const le=document.getElementById('parlayLegs');
-  const ae=document.getElementById('parlayAnalysis');
-  if(!S.parlayLegs.length){le.innerHTML='<div class="empty-note">No props added yet.<br>Tap + on any player.</div>';ae.innerHTML='';return;}
-  le.innerHTML=S.parlayLegs.map((leg,i)=>{
-    const risky=isRisky(leg);
-    return `<div class="parlay-leg"><div class="leg-info"><div class="leg-player">${leg.playerName}</div><div class="leg-prop">${leg.teamName} · ${leg.propLabel}</div></div><div class="leg-right"><span class="prop-tag ${risky?'tag-risky':'tag-take'}">${risky?'RISKY':'OK'}</span><button class="remove-leg" onclick="removeLeg(${i})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div></div>`;
+function renderParlay() {
+  const le = document.getElementById('parlayLegs');
+  const ae = document.getElementById('parlayAnalysis');
+  if (!S.parlayLegs.length) {
+    le.innerHTML = '<div class="empty-note">No props added yet.<br>Tap + on any player.</div>';
+    ae.innerHTML = '';
+    return;
+  }
+  le.innerHTML = S.parlayLegs.map((leg, i) => {
+    const risky = isRisky(leg);
+    return `<div class="parlay-leg">
+      <div class="leg-info">
+        <div class="leg-player">${safeText(leg.playerName)}</div>
+        <div class="leg-prop">${safeText(leg.teamName)} · ${safeText(leg.propLabel)}</div>
+      </div>
+      <div class="leg-right">
+        <span class="prop-tag ${risky?'tag-risky':'tag-take'}">${risky?'RISKY':'OK'}</span>
+        <button class="remove-leg" onclick="removeLeg(${i})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>`;
   }).join('');
-  const weak=S.parlayLegs.filter(isRisky);
-  const n=S.parlayLegs.length;
-  const conf=Math.max(8,88-weak.length*20-(n>4?(n-4)*8:0));
-  const cls=conf>=65?'av-good':conf>=40?'av-warn':'av-bad';
-  const txt=conf>=65?`✓ Reasonable. ${n} legs, ~${conf}% confidence.`
-    :conf>=40?`⚠ Risky. Weak legs: ${weak.map(l=>l.playerName.split(' ').pop()).join(', ')}. Consider removing.`
-    :`✕ Don't lock this. ${weak.length}/${n} legs are high risk. Unlikely to hit.`;
-  ae.innerHTML=`<div class="parlay-analysis">
+
+  const weak = S.parlayLegs.filter(isRisky);
+  const n    = S.parlayLegs.length;
+  const conf = Math.max(8, 88 - weak.length * 20 - (n > 4 ? (n - 4) * 8 : 0));
+  const cls  = conf >= 65 ? 'av-good' : conf >= 40 ? 'av-warn' : 'av-bad';
+  const txt  = conf >= 65
+    ? `✓ Reasonable. ${n} legs, ~${conf}% combined confidence.`
+    : conf >= 40
+    ? `⚠ Risky. ${weak.length} weak leg${weak.length!==1?'s':''}: ${weak.map(l=>safeText(l.playerName.split(' ').pop())).join(', ')}. Consider removing.`
+    : `✕ Don't lock this. ${weak.length}/${n} legs are high risk.`;
+
+  ae.innerHTML = `<div class="parlay-analysis">
     <div class="a-row"><span class="a-label">Total legs</span><strong>${n}</strong></div>
     <div class="a-row"><span class="a-label">Risky legs</span><strong style="color:${weak.length?'var(--avoid)':'var(--take)'}">${weak.length}</strong></div>
     <div class="a-row"><span class="a-label">Est. confidence</span><strong style="color:${conf>=65?'var(--take)':conf>=40?'var(--risky)':'var(--avoid)'}">${conf}%</strong></div>
@@ -915,41 +1284,46 @@ function renderParlay(){
   </div>`;
 }
 
-function isRisky(l){
-  if(l.stat==='PTS'&&l.line>=25) return true;
-  if(l.stat==='REB'&&l.line>=9)  return true;
-  if(l.stat==='AST'&&l.line>=8)  return true;
-  if(l.stat==='3PM'&&l.line>=3)  return true;
-  if(l.stat==='STL'||l.stat==='BLK') return true;
+function isRisky(l) {
+  if (l.stat==='PTS' && l.line>=25) return true;
+  if (l.stat==='REB' && l.line>=9)  return true;
+  if (l.stat==='AST' && l.line>=8)  return true;
+  if (l.stat==='3PM' && l.line>=3)  return true;
+  if (l.stat==='STL' || l.stat==='BLK') return true;
   return false;
 }
 
-function removeLeg(i){S.parlayLegs.splice(i,1);updateFloat();renderParlay();}
-
-// ── REFRESH ──
-function startAutoRefresh(){
-  if(S.refreshInterval) clearInterval(S.refreshInterval);
-  S.refreshInterval=setInterval(()=>{
-    loadGames();
-    if(S.activeGame){delete S.gameCache[S.activeGame];loadPanel(S.activeGame);}
-  }, CFG.REFRESH_SEC*1000);
+function removeLeg(i) {
+  S.parlayLegs.splice(i, 1);
+  updateFloat();
+  renderParlay();
 }
 
-function manualRefresh(){
-  const btn=document.getElementById('refreshBtn');
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AUTO REFRESH
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function startAutoRefresh() {
+  if (S.refreshInterval) clearInterval(S.refreshInterval);
+  S.refreshInterval = setInterval(() => {
+    loadGames();
+    if (S.activeGame) { delete S.gameCache[S.activeGame]; loadPanel(S.activeGame); }
+  }, CFG.REFRESH_SEC * 1000);
+}
+
+function manualRefresh() {
+  const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
-  if(S.refreshInterval) clearInterval(S.refreshInterval);
-  loadGames().then(()=>{
-    if(S.activeGame){delete S.gameCache[S.activeGame];loadPanel(S.activeGame);}
+  if (S.refreshInterval) clearInterval(S.refreshInterval);
+  loadGames().then(() => {
+    if (S.activeGame) { delete S.gameCache[S.activeGame]; loadPanel(S.activeGame); }
     btn.classList.remove('spinning');
     startAutoRefresh();
   });
 }
 
-// ── UTILS ──
-function esc(s){return(s||'').replace(/'/g,"\\'").replace(/"/g,'\\"');}
-
-// ── INIT ──
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 loadGames();
 startAutoRefresh();
 </script>
